@@ -1,59 +1,105 @@
-# Image Converter
+<p align="center">
+  <img src="icon.png" width="110" alt="Image Converter icon">
+</p>
 
-A small offline tool that converts images between formats (PNG, JPEG, WEBP, HEIC, ...).
+<h1 align="center">Image Converter</h1>
 
-## What's in this folder
+<p align="center">
+  Convert your pictures to another format in a few clicks.<br>
+  Free, simple, and 100% offline. Your pictures never leave your computer.
+</p>
 
-| File | What it is |
+<p align="center">
+  <a href="https://github.com/bocchhii/image-converter/releases/latest"><b>⬇ Download for Windows</b></a>
+</p>
+
+---
+
+## Install (1 minute)
+
+1. Click **Download for Windows** above.
+2. On the page that opens, scroll to **Assets** and click **ImageConverter-Setup.exe**.
+3. Double-click the downloaded file.
+4. If Windows says **"Windows protected your PC"**, click **More info**, then **Run anyway**.
+   *(This appears for every app from a small independent developer. The app is safe and works fully offline.)*
+5. Click **Next**, then **Install**, then **Finish**.
+
+You'll find **Image Converter** in your Start menu. There's also an optional desktop shortcut during setup.
+
+**To uninstall:** Settings → Apps → Installed apps → Image Converter → Uninstall.
+
+---
+
+## How to use it
+
+1. **Add pictures.** Drag and drop them into the window (folders work too), or click **Add...**
+2. **Pick a format** in the **Convert to** box, such as PNG, JPEG or WEBP.
+3. **Set the quality** with the slider. This only matters for JPEG, WEBP and similar formats.
+4. **Choose where to save.** By default, converted files go next to the originals. Click **Browse...** to pick another folder.
+5. Click **Convert**. Done!
+
+Your original pictures are **never changed or deleted**. If a file with the same name already exists, the new one gets `_converted1` added to its name instead of overwriting it.
+
+### Handy tricks
+
+| Do this | To get this |
 |---|---|
-| `image_converter.py` | the app itself |
-| `icon.ico` / `icon.png` | the app icon (replace these to change it) |
-| `build.bat` | one click: builds `ImageConverter.exe` and the `Setup` file |
-| `installer.iss` | the recipe for the Setup file (used by Inno Setup) |
-| `.github/workflows/release.yml` | builds and publishes a download page automatically |
+| Click a picture | Select it |
+| **Ctrl** + click | Select several, one by one |
+| **Shift** + click | Select a range |
+| Click and drag on empty space | Draw a box to select many at once |
+| Rest the mouse on a picture | See its type, size and dimensions |
+| **Right-click** a picture | **Rename** (the converted file), **Duplicate**, or **Remove** |
+| **Delete** key | Remove the selected pictures from the list |
+
+**Rename** only changes the name of the converted file. **Duplicate** adds another copy of the picture to the list, handy for converting one picture to a different name or quality. Nothing is saved until you press **Convert**.
 
 ---
 
-## Option A - build the Setup file on your own PC (10 minutes)
+## Supported formats
 
-1. Install **Python** from https://www.python.org/downloads/ (tick **Add python.exe to PATH**).
-2. Install **Inno Setup** (free) from https://jrsoftware.org/isdl.php.
-3. Double-click **`build.bat`**.
-4. When it says DONE, your installer is at **`installer_output\ImageConverter-Setup.exe`**.
-5. Send that one file to people (Google Drive, Dropbox, WeTransfer, ...).
+**Convert to:** PNG, JPEG, WEBP, HEIC, AVIF, BMP, GIF, TIFF, ICO, PDF, TGA, PPM, JPEG 2000, DDS, PCX
 
-## Option B - get a real download link with GitHub (recommended)
-
-This builds the Setup file for you in the cloud and gives you a permanent link.
-
-1. Make a free account at https://github.com and create a **new repository** (e.g. `image-converter`).
-2. Upload everything in this folder to it (including the hidden `.github` folder).
-3. Go to the repository -> **Releases** -> **Create a new release**, type the tag **`v1.0.0`**
-   and publish it (or push the tag from git).
-4. Wait ~5 minutes (watch the **Actions** tab). The Setup file appears on the release page.
-5. Send people this link (replace the names):
-   `https://github.com/YOUR-USERNAME/image-converter/releases/latest`
-
-For a new version, change the code, then publish a new release with the tag `v1.0.1`, `v1.1.0`, etc.
+**Open from:** all the formats above and most other common image types, including iPhone HEIC photos.
 
 ---
 
-## What your users do
+## Good to know
 
-1. Open your link and download **ImageConverter-Setup.exe**.
-2. Double-click it. If Windows shows **"Windows protected your PC"**, click
-   **More info -> Run anyway** (see the note below).
-3. Click **Next -> Install -> Finish**.
-4. Open **Image Converter** from the Start menu (or the desktop shortcut if they ticked it).
+- **Transparent pictures → JPEG:** JPEG can't be transparent, so the background becomes white.
+- **Animated GIFs:** only the first frame is converted.
+- **ICO icons:** images larger than 256×256 are shrunk to fit.
+- **Not supported:** camera RAW files (CR2, NEF, ARW...) and SVG.
+- **Windows only** for now.
 
-To uninstall: **Settings -> Apps -> Installed apps -> Image Converter -> Uninstall**.
+---
 
-### About the "Windows protected your PC" warning
-Windows shows it for any program from an unknown publisher. It doesn't mean the app is unsafe -
-the app is simply not digitally signed. Removing the warning needs a paid code-signing
-certificate (or a service such as Azure Trusted Signing). For sharing with friends, telling them
-to click **More info -> Run anyway** is normal.
+## Questions
 
-## Changing the icon
-The icon is already your own design. To change it, replace `icon.ico` and `icon.png` (keep the names) and build again.
-Tip: this very app can convert any picture to **ICO** for you.
+**Is it safe?**
+Yes. It runs entirely on your computer and never connects to the internet.
+
+**Why does Windows warn me?**
+Windows warns about any app that isn't digitally signed, and signing costs money. Click **More info → Run anyway**.
+
+**Something went wrong.**
+Open an [issue](https://github.com/bocchhii/image-converter/issues) and tell me what happened.
+
+---
+
+<details>
+<summary>For developers</summary>
+
+Built with Python, Tkinter and Pillow.
+
+**Run from source**
+
+    pip install pillow pillow-heif tkinterdnd2
+    python image_converter.py
+
+**Build the installer yourself:** install Python and [Inno Setup](https://jrsoftware.org/isdl.php), then double-click `build.bat`.
+The installer appears in `installer_output`.
+
+**Publish a new version:** push a tag like `v1.0.1` (or publish a release with that tag). GitHub Actions builds `ImageConverter-Setup.exe` and attaches it to the release.
+
+</details>
