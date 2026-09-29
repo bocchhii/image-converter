@@ -5,10 +5,12 @@ Run:     python master_converter.py
 """
 import base64
 import io
+import json
 import os
 import queue
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import threading
@@ -131,6 +133,229 @@ def raw_dims(path):
 
 # XP-ish palette
 BG, BLUE, DARK = "#ECE9D8", "#245EDC", "#0A246A"
+
+
+# ---- light / dark mode ----
+# The app is written with light colours. In dark mode, every colour it gives Tk - when making
+# a widget, changing one, or drawing on a canvas - goes through dark_color() first, so the
+# whole app turns dark without each colour being handled one by one. Some colours depend on
+# their role: white is a box's background in one place and a 3D edge's highlight in another.
+DARK_MODE = False
+DARK_FACE, DARK_BOX, DARK_TEXT = "#353535", "#1E1E1E", "#E8E8E8"
+_DARK_ANY = {  # light colour -> dark colour, wherever it's used
+    "#ece9d8": DARK_FACE,  # window / button face (BG)
+    "#f5f3e8": "#474747",  # pressed button face
+    "#ffffe1": "#403f2c",  # tooltip
+    "#efefef": "#2b2b2b",  # scrollbar track
+    "#cccccc": "#5b5b5b",  # scrollbar thumb
+    "#a6a6a6": "#777777",  # ... under the mouse
+    "#606060": "#8c8c8c",  # ... held down / ruler ticks
+    "#dadada": "#454545",  # scrollbar arrow under the mouse
+    "#5f5f5f": "#c2c2c2",  # scrollbar arrows
+    "#b0b0b0": "#626262",  # picture box border
+    "#a0a0a0": "#6c6c6c",  # timeline lines
+    "#666666": "#b3b3b3",  # grey text
+    "#888888": "#8f8f8f",  # hint text
+    "#999999": "#727272",  # greyed-out text
+    "#303030": "#d4d4d4",  # timeline numbers
+    "#c00000": "#ff7a7a",  # red messages
+    "#e4e4e4": "#3c3c3c",  # picture still loading
+    "#d8d8d8": "#3a3a3a",  # filmstrip still loading
+    "#9a9a9a": "#1c1c1c",  # parts of the filmstrip left out
+    "#f0f0f0": "#3b3b3b",  # right-click menu's inner frame
+}
+_DARK_ROLE = {  # colours that change differently depending on what they're for
+    "text": {"#000000": DARK_TEXT, "#ffffff": "#ffffff"},  # (white text stays white)
+    "box": {"#ffffff": DARK_BOX, "#000000": DARK_TEXT},  # box backgrounds; black shapes
+    "edge": {"#ffffff": "#5e5e5e", "#8e8c82": "#1b1b1b", "#000000": "#000000"},  # 3D edges
+    "face": {},
+}
+_TO_DARK = {r: {k: v.lower() for k, v in {**_DARK_ANY, **m}.items()}  # all lowercase, so
+            for r, m in _DARK_ROLE.items()}                           # both ways look up alike
+_TO_LIGHT = {r: {d: l for l, d in m.items()} for r, m in _TO_DARK.items()}
+for _r, _m in _TO_DARK.items():  # every dark colour must lead back to one light colour
+    assert len(set(_m.values())) == len(_m) and not set(_m.values()) & set(_m) - {"#000000", "#ffffff"}, _r
+_NAMES = {"white": "#ffffff", "black": "#000000"}
+
+
+def _norm(color):
+    c = _NAMES.get(str(color).lower(), str(color).lower())
+    return "#" + "".join(ch * 2 for ch in c[1:]) if len(c) == 4 and c[0] == "#" else c
+
+
+def dark_color(color, role="face"):
+    """The dark-mode partner of a light colour (unchanged if it has none)."""
+    return _TO_DARK[role].get(_norm(color), color) if isinstance(color, str) else color
+
+
+def light_color(color, role="face"):
+    """The other way: a dark-mode colour back to its light one."""
+    return _TO_LIGHT[role].get(_norm(color), color) if isinstance(color, str) else color
+
+
+def themed(color, role="face"):
+    """A colour for the current mode - for pictures drawn with Pillow, which Tk doesn't see."""
+    return dark_color(color, role) if DARK_MODE else color
+
+
+# which role a widget's colour options play; a widget's own background depends on its kind:
+# frames' white is a 3D edge (the window / page borders), labels' and canvases' is a box
+_OPT_ROLE = {"fg": "text", "foreground": "text", "activeforeground": "text",
+             "disabledforeground": "text", "insertbackground": "text",
+             "selectforeground": "text", "activebackground": "face",
+             "highlightbackground": "face", "troughcolor": "face", "selectcolor": "box",
+             "readonlybackground": "box"}
+_BOX_WIDGETS = {"canvas", "label", "entry", "listbox", "text"}
+_EDGE_WIDGETS = {"frame", "toplevel", "labelframe"}
+
+
+def _widget_role(widget, opt):
+    if opt in ("bg", "background"):
+        kind = getattr(widget, "widgetName", "frame")
+        return "box" if kind in _BOX_WIDGETS else "edge" if kind in _EDGE_WIDGETS else "face"
+    return _OPT_ROLE.get(opt)
+
+
+def _item_role(item_type, opt):
+    if opt == "outline" or item_type == "line":
+        return "edge"
+    return "text" if item_type == "text" else "box"
+
+
+def _map_opts(opts, role_of):
+    if not isinstance(opts, dict):
+        return opts
+    out = dict(opts)
+    for k, v in opts.items():
+        role = role_of(k.lstrip("-"))
+        if role:
+            out[k] = dark_color(v, role)
+    return out
+
+
+_orig_options = tk.Misc._options
+_orig_create = tk.Canvas._create
+_orig_itemconfigure = tk.Canvas.itemconfigure
+
+
+def _themed_options(self, cnf, kw=None):  # every widget made or changed
+    if DARK_MODE:
+        cnf, kw = (_map_opts(o, lambda k: _widget_role(self, k)) for o in (cnf, kw))
+    return _orig_options(self, cnf, kw)
+
+
+def _themed_create(self, item_type, args, kw):  # every shape drawn on a canvas
+    if DARK_MODE:
+        pick = lambda k: _item_role(item_type, k) if k in ("fill", "outline") else None  # noqa: E731
+        kw = _map_opts(kw, pick)
+        args = list(args)
+        if args and isinstance(args[-1], dict):
+            args[-1] = _map_opts(args[-1], pick)
+    return _orig_create(self, item_type, args, kw)
+
+
+def _themed_itemconfigure(self, tag_or_id, cnf=None, **kw):  # every shape changed
+    if DARK_MODE and (cnf or kw):
+        item_type = self.type(tag_or_id)
+        pick = lambda k: _item_role(item_type, k) if k in ("fill", "outline") else None  # noqa: E731
+        cnf, kw = _map_opts(cnf, pick), _map_opts(kw, pick)
+    return _orig_itemconfigure(self, tag_or_id, cnf, **kw)
+
+
+tk.Misc._options = _themed_options
+tk.Canvas._create = _themed_create
+tk.Canvas.itemconfigure = tk.Canvas.itemconfig = _themed_itemconfigure
+
+_SYSTEM_DARK = {  # Tk's own default colours ("SystemButtonText"...) in dark mode
+    "fg": DARK_TEXT, "foreground": DARK_TEXT, "activeforeground": DARK_TEXT,
+    "insertbackground": DARK_TEXT, "disabledforeground": "#7a7a7a", "selectcolor": DARK_BOX,
+    "troughcolor": "#262626", "highlightbackground": DARK_FACE, "activebackground": "#474747",
+    "bg": DARK_FACE, "background": DARK_FACE}
+_system_colors = {}  # (widget, option) -> the Tk default it had in light mode, to put back
+
+
+def retheme(widget, dark):
+    """Switch one existing widget (and a canvas's drawings) to the new mode."""
+    convert = dark_color if dark else light_color
+    for opt in _SYSTEM_DARK:
+        try:
+            val = str(widget.cget(opt))
+        except (tk.TclError, ValueError):
+            continue
+        if val.lower().startswith("system"):  # a Tk default colour
+            if dark:
+                _system_colors[(str(widget), opt)] = val
+                new = _SYSTEM_DARK[opt]
+            else:
+                continue
+        elif not dark and (str(widget), opt) in _system_colors:
+            new = _system_colors.pop((str(widget), opt))
+        else:
+            role = _widget_role(widget, opt)
+            new = convert(val, role) if role else val
+        if new != val:
+            try:
+                widget.configure({opt: new})
+            except tk.TclError:
+                pass
+    if isinstance(widget, tk.Canvas):
+        for item in widget.find_all():
+            item_type = widget.type(item)
+            for opt in ("fill", "outline"):
+                try:
+                    val = widget.itemcget(item, opt)
+                except tk.TclError:
+                    continue
+                new = convert(val, _item_role(item_type, opt)) if val else val
+                if new != val:
+                    widget.itemconfigure(item, {opt: new})
+
+
+def theme_icon(kind):
+    """12 px icon for the light/dark button: a moon (click for dark), a sun (click for light)."""
+    im = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    if kind == "moon":
+        d.ellipse([1, 1, 10, 10], fill="#1F2D5C")
+        d.ellipse([4, -1, 13, 8], fill=(0, 0, 0, 0))  # bite out of it: a crescent
+    else:
+        d.ellipse([3, 3, 8, 8], fill="#FFD24A")
+        for x0, y0, x1, y1 in ((5, 0, 6, 1), (5, 10, 6, 11), (0, 5, 1, 6), (10, 5, 11, 6),
+                               (1, 1, 2, 2), (9, 1, 10, 2), (1, 9, 2, 10), (9, 9, 10, 10)):
+            d.rectangle([x0, y0, x1, y1], fill="#FFD24A")  # rays
+    return ImageTk.PhotoImage(im)
+
+
+SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
+                             "Master Converter", "settings.json")
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(**values):
+    """Remember choices (like dark mode) for next time; quietly skipped if it can't."""
+    try:
+        data = {**load_settings(), **values}
+        os.makedirs(os.path.dirname(SETTINGS_PATH), exist_ok=True)
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError:
+        pass
+
+
+def all_widgets(root):
+    out, todo = [], [root]
+    while todo:
+        w = todo.pop()
+        out.append(w)
+        todo.extend(w.winfo_children())
+    return out
 FONT = ("Tahoma", 9)
 
 
@@ -509,7 +734,10 @@ class ClassicWindow:
     def check_active(self):
         try:
             f = self.win.focus_get()
-            self.set_active(f is not None and f.winfo_toplevel() is self.win)
+            top = f.winfo_toplevel() if f is not None else None
+            # its own right-click menu counts as still in the window, like Windows' menus
+            self.set_active(top is self.win or (
+                getattr(top, "keeps_owner_active", False) and top.master.winfo_toplevel() is self.win))
         except (KeyError, tk.TclError):
             pass
 
@@ -520,12 +748,15 @@ class ClassicWindow:
 
     # ---- drawing ----
     def buttons(self):
-        """[(kind, x0, y0)] from the right: X on its own, then [] and _ side by side."""
-        W, y = self.bar.winfo_width(), (self.TITLE_H - self.BTN_H) // 2
-        x = W - 2 - self.BTN_W
+        """[(kind, x0, y0)] from the right: X, [] and _ side by side with no gaps; X keeps
+        the same distance from the bar's right edge as from its top (3 px)."""
+        W = self.bar.winfo_width()
+        margin = (self.TITLE_H - self.BTN_H) // 2  # 3 px from the bar's right edge
+        y = margin + 1  # 1 px lower than exactly centred: 4 px above, 3 below
+        x = W - margin - self.BTN_W
         out = [("close", x, y)]
         if self.resizable:
-            x -= 2 + self.BTN_W
+            x -= self.BTN_W
             out.append(("restore" if self.maximized else "max", x, y))
             out.append(("min", x - self.BTN_W, y))
         return out
@@ -856,6 +1087,172 @@ def dialog(title, message, buttons=("OK",), parent=None, sound=None):
     return result[0]
 
 
+class PopupMenu:
+    """Right-click menu drawn by the app itself, laid out like Windows' own (1 px grey outline,
+    2 px inner frame, 21 px items, a line between groups, blue highlight). Windows' menus
+    draw their frame in the system's light colour, which in dark mode showed as a thick
+    white border; this one is coloured like everything else, so it's the same in both modes.
+    Same calls as tk.Menu: add_command(label=, command=), add_separator(), tk_popup(x, y)."""
+
+    def __init__(self, parent):
+        self.parent = parent.winfo_toplevel()
+        self.items = []
+        self.top = None
+
+    def add_command(self, label, command):
+        self.items.append((label, command))
+
+    def add_separator(self):
+        self.items.append(None)
+
+    def tk_popup(self, x, y):
+        top = self.top = tk.Toplevel(self.parent, bg="#A0A0A0")  # the 1 px outline
+        top.keeps_owner_active = True  # its window stays "active" (blue title) while it's open
+        top.withdraw()
+        top.overrideredirect(True)
+        top.transient(self.parent)
+        inner = tk.Frame(top, bg="#F0F0F0")  # the 2 px inner frame
+        inner.pack(padx=1, pady=1)
+        body = tk.Frame(inner, bg=BG)
+        body.pack(padx=2, pady=2)
+        for item in self.items:
+            if item is None:  # etched line: grey over white
+                tk.Frame(body, bg="#A0A0A0", height=1).pack(fill="x", padx=1, pady=(3, 0))
+                tk.Frame(body, bg="#FFFFFF", height=1).pack(fill="x", padx=1, pady=(0, 3))
+                continue
+            label, command = item
+            row = tk.Label(body, text=label, bg=BG, fg="black", font=FONT, anchor="w",
+                           padx=22, pady=3)
+            row.pack(fill="x")
+            row.bind("<Enter>", lambda e, r=row: r.config(bg="#316AC5", fg="white"))
+            row.bind("<Leave>", lambda e, r=row: r.config(bg=BG, fg="black"))
+            row.bind("<ButtonRelease-1>", lambda e, c=command: self.choose(c))
+        top.update_idletasks()
+        w, h = top.winfo_reqwidth(), top.winfo_reqheight()
+        x = min(x, top.winfo_screenwidth() - w - 2)  # keep it on the screen
+        y = y if y + h <= top.winfo_screenheight() else y - h
+        top.geometry(f"+{max(0, x)}+{max(0, y)}")
+        top.deiconify()
+        top.lift()
+        top.attributes("-topmost", True)
+        top.focus_force()
+        top.grab_set()  # clicks anywhere come here: outside the menu closes it
+        top.bind("<ButtonPress>", self.on_press)
+        top.bind("<Escape>", lambda e: self.close())
+        top.bind("<FocusOut>", lambda e: top.after(50, self.check_focus))
+        top.after(100, self.watch_foreground)
+
+    def watch_foreground(self):
+        """While open, ask Windows ~10 times a second whether this app is still in front: a
+        popup like this isn't reliably told when another program takes over, and it would
+        otherwise stay floating on top of that program."""
+        if not self.top:
+            return
+        if sys.platform == "win32":
+            import ctypes
+            u, pid = ctypes.windll.user32, ctypes.c_ulong()
+            u.GetWindowThreadProcessId(u.GetForegroundWindow(), ctypes.byref(pid))
+            if pid.value != os.getpid():  # another program is in front now
+                self.close(give_back=False)
+                return
+        self.top.after(100, self.watch_foreground)
+
+    def on_press(self, e):
+        top = self.top
+        inside = (top.winfo_rootx() <= e.x_root < top.winfo_rootx() + top.winfo_width()
+                  and top.winfo_rooty() <= e.y_root < top.winfo_rooty() + top.winfo_height())
+        if not inside:
+            self.close()
+
+    def check_focus(self):  # switched to another program: close, like a real menu
+        try:
+            f = self.top.focus_get() if self.top else None
+        except (KeyError, tk.TclError):
+            f = None
+        if self.top and (f is None or f.winfo_toplevel() is not self.top):
+            self.close(give_back=False)  # the other program keeps the focus
+
+    def choose(self, command):
+        self.close()
+        command()
+
+    def close(self, give_back=True):
+        """Close the menu and hand the keyboard back to its window - the menu had it (for
+        Escape), and without this the window stayed greyed out as if it had lost focus."""
+        if self.top:
+            top, self.top = self.top, None
+            top.grab_release()
+            top.destroy()
+            try:
+                if give_back:
+                    self.parent.focus_force()
+                else:  # another program took over: let the window grey out its title bar
+                    self.parent.event_generate("<FocusOut>")
+            except tk.TclError:
+                pass
+
+    def grab_release(self):  # (tk.Menu has it; nothing to do here)
+        pass
+
+
+def rename_dialog(parent, current, apply, is_busy=lambda: False):
+    """The Rename box (right-click > Rename, on any tab): asks for the converted file's new
+    name, checks Windows would accept it as a file name, then calls apply(name)."""
+    owner = parent.winfo_toplevel()
+    win = tk.Toplevel(owner)
+    win.configure(bg=BG)
+    win.resizable(False, False)
+    win.transient(owner)
+    body = ClassicWindow(win, "Rename", win.destroy, resizable=False, taskbar=False).body
+    tk.Label(body, text="New name for the converted file\n(the file type is added automatically):",
+             bg=BG, font=FONT, justify="left").pack(anchor="w", padx=12, pady=(12, 4))
+    var = tk.StringVar(value=current)
+    entry = tk.Entry(body, textvariable=var, font=FONT, width=38, relief="sunken", bd=2)
+    entry.pack(padx=12)
+    err = tk.Label(body, text="", bg=BG, fg="#C00000", font=FONT)
+    err.pack(anchor="w", padx=12)
+
+    def ok(_=None):
+        name = var.get().strip().rstrip(".")
+        if not name:
+            err.config(text="The name can't be empty.")
+        elif any(ch in name for ch in '\\/:*?"<>|'):
+            err.config(text='A name can\'t contain any of:  \\ / : * ? " < > |')
+        elif name.split(".")[0].strip().upper() in RESERVED:
+            err.config(text=f'Windows doesn\'t allow "{name}" as a file name.')
+        elif is_busy():
+            err.config(text="Wait for the conversion to finish.")
+        else:
+            win.destroy()
+            apply(name)
+
+    row = tk.Frame(body, bg=BG)
+    row.pack(pady=(4, 12))
+    xp_button(row, "OK", ok).pack(side="left", padx=4)
+    xp_button(row, "Cancel", win.destroy).pack(side="left", padx=4)
+    win.bind("<Return>", ok)
+    win.bind("<Escape>", lambda e: win.destroy())
+
+    win.update_idletasks()  # centre over the main window
+    x = owner.winfo_rootx() + (owner.winfo_width() - win.winfo_reqwidth()) // 2
+    y = owner.winfo_rooty() + (owner.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(f"+{x}+{y}")
+    win.focus_force()  # windows without Windows' title bar don't take the keyboard by themselves
+    entry.focus_set()
+    entry.select_range(0, "end")
+    win.grab_set()
+    return win
+
+
+def copy_name(base, taken):
+    """Name for a duplicate: "clip - Copy", or "clip - Copy (2)", (3)... if that's taken."""
+    name, n = f"{base} - Copy", 2
+    while name in taken:
+        name = f"{base} - Copy ({n})"
+        n += 1
+    return name
+
+
 def status_label(parent, text):
     """Status line beside a button: wraps onto more lines instead of running under the button.
     width=1 stops the text from asking for more room than is left; the space it really gets
@@ -880,7 +1277,7 @@ def reveal_all(paths):
         reveal(folder, files)
 
 
-def convert_one(src, dst, fmt, quality, keep_exif=True):
+def convert_one(src, dst, fmt, quality, keep_exif=True, ico_sizes=None):
     """Convert src into dst; returns the path actually written (RAW pixel data puts the
     picture's size in the file name, since the file itself can't say it)."""
     im = open_image(src)
@@ -914,9 +1311,69 @@ def convert_one(src, dst, fmt, quality, keep_exif=True):
     if fmt in LOSSY:
         opts["quality"] = quality
     if fmt == "ICO":
-        im = im.convert("RGBA")
-        im.thumbnail((256, 256))
+        return save_ico(im, dst, ico_sizes)
     im.save(dst, fmt, **opts)
+    return dst
+
+
+def ico_bitmap(frame):
+    """One icon picture in the classic icon format: a bitmap header (height doubled, as icons
+    require), the colour pixels bottom-up (32-bit, with transparency), then the 1-bit
+    see-through mask that older programs use."""
+    s = frame.width
+    header = struct.pack("<IiiHHIIiiII", 40, s, s * 2, 1, 32, 0, 0, 0, 0, 0, 0)
+    pixels = frame.transpose(Image.FLIP_TOP_BOTTOM).tobytes("raw", "BGRA")
+    row_bytes = ((s + 31) // 32) * 4  # mask rows are padded to 4 bytes
+    alpha = frame.getchannel("A").transpose(Image.FLIP_TOP_BOTTOM).tobytes()
+    mask = bytearray()
+    for y in range(s):
+        row = bytearray(row_bytes)
+        for x in range(s):
+            if alpha[y * s + x] == 0:  # fully see-through
+                row[x // 8] |= 0x80 >> (x % 8)
+        mask += row
+    return header + pixels + bytes(mask)
+
+
+ICO_SIZES = {  # the ICO "quality" list: which size(s) the icon holds
+    "All sizes (16-256 px)": [256, 128, 64, 48, 32, 24, 16],
+    **{f"{s} x {s}": [s] for s in (256, 128, 64, 48, 32, 24, 16)}}
+
+
+def save_ico(im, dst, sizes=None):
+    """An icon holding the picture at the given sizes - by default all of 256, 128, 64, 48,
+    32, 24 and 16 px (the sizes Windows uses), largest first.
+    Written here rather than by Pillow, whose icons Windows reports as 16 x 16 (Explorer's
+    Dimensions, and the first picture Photos and other programs get) - so they looked like
+    they'd lost all their detail. Tested on Windows: only with every size in the classic
+    icon format and the largest first does it report and show the 256 px picture. That format
+    isn't compressed, so the file is bigger (~370 KB for all sizes), but it works in every
+    program, even Windows XP. Each size is made straight from the full-size original
+    (sharpest), and a non-square picture is centred on a transparent square."""
+    im = im.convert("RGBA")
+    w, h = im.size
+    side = max(w, h)
+    if w != h:
+        square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        square.paste(im, ((side - w) // 2, (side - h) // 2))
+        im = square
+    # by default the full standard set, 256 first: tested on Windows, it only reliably reports
+    # and shows the big picture when there's a 256 one first (with other sets it picks a small
+    # one). A picture under a size is enlarged for it - that can't add detail it doesn't have,
+    # but it's the sharpest the icon can be
+    sizes = sorted(sizes or ICO_SIZES["All sizes (16-256 px)"], reverse=True)
+    frames = []
+    for s in sizes:
+        frame = im if s == side else im.resize((s, s), Image.LANCZOS)
+        frames.append((s, ico_bitmap(frame)))
+    # ICO file: 6-byte header, one 16-byte entry per picture, then the pictures
+    out = struct.pack("<HHH", 0, 1, len(frames))
+    offset = 6 + 16 * len(frames)
+    for s, data in frames:  # width/height 256 is written as 0
+        out += struct.pack("<BBBBHHII", s % 256, s % 256, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+    with open(dst, "wb") as f:
+        f.write(out + b"".join(data for _, data in frames))
     return dst
 
 
@@ -1136,7 +1593,6 @@ class ThumbGrid(tk.Frame):
         self.entries = []  # (path, title, subtitle) as last drawn
         self._photos, self._redraw_job = [], None
         self._photo_cache, self._photo_px = {}, None  # scaled Tk images, reused between redraws
-        self._loading = Image.new("RGBA", (64, 64), "#E4E4E4")
         self.rects, self.press, self.dragging = [], None, False
         self.base_sel, self.ctrl, self.region_h = set(), False, 0
         self._band_img = None
@@ -1204,7 +1660,8 @@ class ThumbGrid(tk.Frame):
             photo = self._photo_cache.get(path)
             if photo is None:
                 th = self.owner.grid_thumb(path)
-                img = (th or self._loading).copy()  # grey square until it has loaded
+                # grey square until it has loaded (Pillow picture: coloured for the mode here)
+                img = (th or Image.new("RGBA", (64, 64), themed("#E4E4E4"))).copy()
                 img.thumbnail((px, px), Image.BILINEAR)
                 photo = ImageTk.PhotoImage(img)
                 if th is not None:
@@ -1762,14 +2219,19 @@ class App(BaseTk):
         self.names = []  # custom name for the converted file (None = keep original)
         self.small = tkfont.Font(family="Tahoma", size=8)
 
-        style = ttk.Style(self)
-        style.theme_use("winnative" if "winnative" in style.theme_names() else "clam")
-        style.configure("Treeview", font=FONT)
-        style.configure("Treeview.Heading", font=FONT)
+        self.style_ttk()  # lists and dropdowns: classic shapes, same in light and dark
 
         # tabs on top, sitting on the raised border around the open page
         self.tabs = ClassicTabs(content, self.show_page)
         self.tabs.pack(fill="x", padx=6, pady=(6, 0))
+        # small light / dark mode button at the right end of the tab row
+        self._theme_icons = {False: theme_icon("moon"), True: theme_icon("sun")}
+        self.theme_btn = xp_button(content, "", self.toggle_theme)
+        self.theme_btn.config(image=self._theme_icons[False], width=16, height=12, padx=0,
+                              pady=0, highlightthickness=0)
+        # y=-1: in the 29 px between the title bar and the page's top edge, 6 px above it
+        # and 5 below
+        self.theme_btn.place(in_=self.tabs, relx=1.0, x=-3, y=-1, anchor="ne")
         area = framed_page(content)
         body = tk.Frame(area, bg=BG, padx=10, pady=8)
         self.video = VideoPanel(area, self)
@@ -1822,7 +2284,8 @@ class App(BaseTk):
                           state="readonly", width=14)
         cb.grid(row=0, column=1, sticky="w", padx=6, pady=2)
 
-        tk.Label(opt, text="Quality:", bg=BG, font=FONT).grid(row=1, column=0, sticky="w")
+        self.qlabel = tk.Label(opt, text="Quality:", bg=BG, font=FONT)
+        self.qlabel.grid(row=1, column=0, sticky="w")
         self.quality = tk.IntVar(value=90)
         self.qscale = tk.Scale(opt, from_=1, to=100, orient="horizontal", variable=self.quality,
                                bg=BG, font=FONT, length=200, highlightthickness=0)
@@ -1830,6 +2293,10 @@ class App(BaseTk):
         self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
         # pinned beside the slider, outside the grid, so it can't shift the Browse button
         self.qnote.place(in_=self.qscale, relx=1.0, rely=1.0, x=6, y=-4, anchor="sw")
+        # for ICO the slider is swapped for a list of icon sizes (in the same spot)
+        self.ico_size = tk.StringVar(value=next(iter(ICO_SIZES)))
+        self.ico_cb = ttk.Combobox(opt, textvariable=self.ico_size, values=list(ICO_SIZES),
+                                   state="readonly", width=20)
         self.fmt.trace_add("write", lambda *_: self.update_quality_state())
         self.update_quality_state()
 
@@ -1866,6 +2333,95 @@ class App(BaseTk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.tabs.select("images")
         self.files_box.refresh()
+        self.color_dropdown_lists()  # the same selection blue from the start
+        if load_settings().get("dark"):  # dark mode chosen last time
+            self.set_theme(True)
+
+    # ---- light / dark mode ----
+    def toggle_theme(self):
+        self.set_theme(not DARK_MODE)
+        save_settings(dark=DARK_MODE)
+
+    def set_theme(self, dark):
+        """Switch the whole app between light and dark."""
+        global DARK_MODE
+        if dark == DARK_MODE:
+            return
+        DARK_MODE = dark  # from here on, every colour given to Tk goes through dark_color()
+        self.style_ttk()
+        self.option_clear()  # defaults for widgets made from now on (menus, dialogs...)
+        if dark:
+            for pattern, value in (
+                    ("*foreground", DARK_TEXT), ("*activeForeground", DARK_TEXT),
+                    ("*disabledForeground", "#7a7a7a"), ("*selectColor", DARK_BOX),
+                    ("*insertBackground", DARK_TEXT), ("*troughColor", "#262626"),
+                    ("*highlightBackground", DARK_FACE), ("*background", DARK_FACE),
+                    ("*Entry.background", DARK_BOX),  # text boxes: dark like the file boxes
+                    ("*TCombobox*Listbox.background", DARK_BOX),
+                    ("*TCombobox*Listbox.foreground", DARK_TEXT),
+                    ("*TCombobox*Listbox.selectBackground", "#316AC5"),
+                    ("*TCombobox*Listbox.selectForeground", "white")):
+                self.option_add(pattern, value)
+        widgets = all_widgets(self)
+        for w in widgets:  # everything that already exists
+            retheme(w, dark)
+        for w in widgets:  # the custom-drawn parts: redraw them in the new colours
+            if isinstance(w, (ClassicTabs, FlatScrollbar)):
+                w.draw()
+            elif isinstance(w, ClassicProgress):
+                w.draw(force=True)
+            elif isinstance(w, ThumbGrid):
+                w.redraw()
+            elif isinstance(w, DetailsList):
+                w.draw_hint()
+            elif isinstance(w, GifPanel):
+                w.draw_strip()
+        self.chrome.draw()
+        self.theme_btn.config(image=self._theme_icons[dark])
+        self.color_dropdown_lists()
+        self.update_quality_state()  # the ICO size list's height differs between the modes
+
+    def color_dropdown_lists(self):
+        """A dropdown makes its list the first time it opens and keeps its colours: colour
+        every dropdown's list (making it now if needed) for the current mode."""
+        for w in all_widgets(self):
+            if isinstance(w, ttk.Combobox):
+                popdown = self.tk.call("ttk::combobox::PopdownWindow", w)
+                self.tk.call(f"{popdown}.f.l", "configure",
+                             "-background", DARK_BOX if DARK_MODE else "white",
+                             "-foreground", DARK_TEXT if DARK_MODE else "black",
+                             "-selectbackground", "#316AC5", "-selectforeground", "white")
+
+    def style_ttk(self):
+        """The details lists and dropdowns are ttk widgets, coloured through styles. Both modes
+        use ttk's "alt" look - classic Windows shapes (raised arrow buttons, classic scrollbar)
+        drawn by Tk, so unlike Windows' own native look they can be recoloured: the shapes
+        stay exactly the same in light and dark, only the colours change."""
+        style = ttk.Style(self)
+        style.theme_use("alt")
+        if DARK_MODE:
+            face, box, text, trough, hot, grey = (DARK_FACE, DARK_BOX, DARK_TEXT, "#262626",
+                                                  "#474747", "#7a7a7a")
+        else:
+            face, box, text, trough, hot, grey = (BG, "white", "black", "#F7F6F0",
+                                                  "#F5F3E8", "#999999")
+        style.configure(".", background=face, foreground=text, fieldbackground=box,
+                        troughcolor=trough, selectbackground="#316AC5",
+                        selectforeground="white", arrowcolor=text, font=FONT)
+        style.map(".", background=[("active", hot)])
+        style.configure("Treeview", background=box, fieldbackground=box, foreground=text,
+                        font=FONT)
+        style.configure("Treeview.Heading", background=face, foreground=text, font=FONT,
+                        relief="raised")
+        style.map("Treeview", background=[("selected", "#316AC5")],
+                  foreground=[("selected", "white")])
+        style.map("Treeview.Heading", background=[("active", hot)])
+        style.map("TCombobox",
+                  fieldbackground=[("readonly", box), ("disabled", face)],
+                  foreground=[("readonly", text), ("disabled", grey)],
+                  selectbackground=[("readonly", box)],
+                  selectforeground=[("readonly", text)],
+                  background=[("readonly", face), ("active", hot)])
 
     def hide_tip(self):
         """Close any hover tooltip (Images or Videos thumbnails)."""
@@ -1884,8 +2440,25 @@ class App(BaseTk):
         self.page = key
 
     def update_quality_state(self):
-        """Lock the slider (with a grey note saying why) for formats that ignore quality."""
+        """Lock the slider (with a grey note saying why) for formats that ignore quality.
+        For ICO, the slider makes way for the list of icon sizes."""
         fmt = OUT_FORMATS[self.fmt.get()][0]
+        ico = fmt == "ICO"
+        if ico:
+            self.qscale.grid_remove()  # its note is pinned to it, so it goes too
+            # space above and below so the list's row is exactly as tall as the slider's, and
+            # nothing below moves when switching to / from ICO (the list's own height differs
+            # between light and dark mode, so it's worked out each time)
+            self.ico_cb.update_idletasks()
+            extra = max(0, self.qscale.winfo_reqheight() - self.ico_cb.winfo_reqheight())
+            self.ico_cb.grid(row=1, column=1, sticky="w", padx=6,
+                             pady=(extra // 2, extra - extra // 2))
+        else:
+            self.ico_cb.grid_remove()
+            self.qscale.grid()
+        self.qlabel.config(text="Icon size:" if ico else "Quality:")
+        if ico:
+            return
         # Pillow's JPEG 2000 writer ignores quality; SVG uses it for the JPEG inside
         used = (fmt in LOSSY and fmt != "JPEG2000") or fmt == "SVG"
         self.qscale.config(state="normal" if used else "disabled",
@@ -2059,8 +2632,7 @@ class App(BaseTk):
         """Right-click on a file (either view): Rename / Duplicate / Remove."""
         if self.busy:
             return
-        menu = tk.Menu(self, tearoff=0, font=FONT, bg=BG, fg="black", bd=1,
-                       activebackground="#316AC5", activeforeground="white")
+        menu = PopupMenu(self)  # drawn by the app: the same thin frame in light and dark
         menu.add_command(label="Rename", command=lambda: self.rename_item(i))
         menu.add_command(label="Duplicate", command=lambda: self.duplicate_item(i))
         menu.add_separator()
@@ -2101,61 +2673,17 @@ class App(BaseTk):
 
     def rename_item(self, i):
         """Renames the converted file only - the original on disk is never touched."""
-        win = tk.Toplevel(self)
-        win.configure(bg=BG)
-        win.resizable(False, False)
-        win.transient(self)
-        body = ClassicWindow(win, "Rename", win.destroy, resizable=False, taskbar=False).body
-        tk.Label(body, text="New name for the converted file\n(the file type is added automatically):",
-                 bg=BG, font=FONT, justify="left").pack(anchor="w", padx=12, pady=(12, 4))
-        var = tk.StringVar(value=self.out_base(i))
-        entry = tk.Entry(body, textvariable=var, font=FONT, width=38, relief="sunken", bd=2)
-        entry.pack(padx=12)
-        err = tk.Label(body, text="", bg=BG, fg="#C00000", font=FONT)
-        err.pack(anchor="w", padx=12)
-
-        def ok(_=None):
-            name = var.get().strip().rstrip(".")
-            if not name:
-                err.config(text="The name can't be empty.")
-            elif any(ch in name for ch in '\\/:*?"<>|'):
-                err.config(text='A name can\'t contain any of:  \\ / : * ? " < > |')
-            elif name.split(".")[0].strip().upper() in RESERVED:
-                err.config(text=f'Windows doesn\'t allow "{name}" as a file name.')
-            elif self.busy:
-                err.config(text="Wait for the conversion to finish.")
-            else:
-                self.names[i] = name
-                self.status.config(text=f"Will be saved as \"{name}\".")
-                win.destroy()
-                self.files_box.refresh()
-
-        row = tk.Frame(body, bg=BG)
-        row.pack(pady=(4, 12))
-        self.btn(row, "OK", ok).pack(side="left", padx=4)
-        self.btn(row, "Cancel", win.destroy).pack(side="left", padx=4)
-        win.bind("<Return>", ok)
-        win.bind("<Escape>", lambda e: win.destroy())
-
-        win.update_idletasks()  # centre over the main window
-        x = self.winfo_rootx() + (self.winfo_width() - win.winfo_reqwidth()) // 2
-        y = self.winfo_rooty() + (self.winfo_height() - win.winfo_reqheight()) // 3
-        win.geometry(f"+{x}+{y}")
-        win.focus_force()  # windows without Windows' title bar don't take the keyboard by themselves
-        entry.focus_set()
-        entry.select_range(0, "end")
-        win.grab_set()
+        def apply(name):
+            self.names[i] = name
+            self.status.config(text=f"Will be saved as \"{name}\".")
+            self.files_box.refresh()
+        rename_dialog(self, self.out_base(i), apply, lambda: self.busy)
 
     def duplicate_item(self, i):
         """Adds a copy of the picture right after it. Nothing is saved until Convert."""
         if self.busy:
             return
-        taken = {self.out_base(k) for k in range(len(self.files))}
-        base = self.out_base(i)
-        name, n = f"{base} - Copy", 2
-        while name in taken:
-            name = f"{base} - Copy ({n})"
-            n += 1
+        name = copy_name(self.out_base(i), {self.out_base(k) for k in range(len(self.files))})
         self.files.insert(i + 1, self.files[i])  # same path, so it shares the thumbnail
         self.names.insert(i + 1, name)
         self.selected = {i + 1}  # select the new copy
@@ -2217,7 +2745,8 @@ class App(BaseTk):
         fmt, ext = OUT_FORMATS[label]
         # snapshot everything the worker needs, so it never reads the live list
         jobs = [(src, self.out_base(i)) for i, src in enumerate(self.files)]
-        settings = (fmt, ext, self.quality.get(), self.keep_exif.get(), self.outdir)
+        settings = (fmt, ext, self.quality.get(), self.keep_exif.get(), self.outdir,
+                    ICO_SIZES[self.ico_size.get()])
         self.progress.config(maximum=len(jobs), value=0)
         self.set_busy(True)
         self.hide_tip()
@@ -2229,13 +2758,13 @@ class App(BaseTk):
     @staticmethod
     def convert_worker(jobs, settings, events):
         """Runs off the main thread: only talks to the window through `events`."""
-        fmt, ext, q, keep_exif, outdir = settings
+        fmt, ext, q, keep_exif, outdir, ico_sizes = settings
         done, errors = [], []  # done = paths of the files written
         for i, (src, base) in enumerate(jobs, 1):
             events.put(("file", os.path.basename(src)))
             dst = unique_path(outdir or os.path.dirname(src), base, ext)
             try:
-                done.append(convert_one(src, dst, fmt, q, keep_exif))  # the path it wrote
+                done.append(convert_one(src, dst, fmt, q, keep_exif, ico_sizes))  # path written
             except Exception as e:
                 errors.append(f"{os.path.basename(src)}: {e}")
             events.put(("step", i))
@@ -2302,7 +2831,7 @@ class VideoPanel(tk.Frame):
         self.files_box = FileBox(
             box, self, self.COLUMNS,
             f"Drag & drop {self.NOUN}s here\nor click Add..." if HAS_DND
-            else f"Click Add... to choose {self.NOUN}s", view="details", button_parent=btns)
+            else f"Click Add... to choose {self.NOUN}s", view="thumbs", button_parent=btns)
 
         # Options
         opt = tk.LabelFrame(self, text=" Options ", bg=BG, font=FONT, padx=6, pady=6)
@@ -2450,7 +2979,7 @@ class VideoPanel(tk.Frame):
                 except OSError:
                     size = None
                 self.items.append({"path": p, "info": None, "thumb": None, "status": "Ready",
-                                   "bytes": size})
+                                   "bytes": size, "name": None})  # name: set by Rename
                 self._probe_todo.put(p)
         msg = f"{len(self.items)} {self.NOUN}(s) selected."
         if skipped:
@@ -2471,12 +3000,13 @@ class VideoPanel(tk.Frame):
         try:
             while True:
                 path, info, thumb = self._probe_ready.get_nowait()
-                item = next((it for it in self.items if it["path"] == path), None)
-                if item is None or info is None:
-                    continue  # removed while being read
-                item["info"] = info
-                item["thumb"] = thumb or Image.new("RGBA", (64, 64), "#CCCCCC")
-                got = True
+                if info is None:
+                    continue
+                for item in self.items:  # every copy of it (Duplicate); none if removed
+                    if item["path"] == path:
+                        item["info"] = info
+                        item["thumb"] = thumb or Image.new("RGBA", (64, 64), "#CCCCCC")
+                        got = True
         except queue.Empty:
             pass
         if got:
@@ -2509,7 +3039,7 @@ class VideoPanel(tk.Frame):
             # the second line shows the conversion status while there is one to show
             sub = (f"{ext} file, {self.length_text(it)}" if it["status"] == "Ready"
                    else it["status"])
-            out.append((it["path"], os.path.basename(it["path"]), sub))
+            out.append((it["path"], self.display_name(it), sub))
         return out
 
     def grid_thumb(self, path):
@@ -2517,8 +3047,17 @@ class VideoPanel(tk.Frame):
         return it["thumb"] if it else None
 
     def list_rows(self):
-        return [(os.path.basename(it["path"]), self.length_text(it), self.detail_text(it),
+        return [(self.display_name(it), self.length_text(it), self.detail_text(it),
                  it["status"]) for it in self.items]
+
+    def out_base(self, it):
+        """Name (without extension) the converted file will get."""
+        return it["name"] or os.path.splitext(os.path.basename(it["path"]))[0]
+
+    def display_name(self, it):
+        """The name shown: the new name if renamed (with the original's extension)."""
+        src = os.path.basename(it["path"])
+        return (it["name"] + os.path.splitext(src)[1]) if it["name"] else src
 
     def tip_lines(self, i):
         it = self.items[i]
@@ -2528,16 +3067,39 @@ class VideoPanel(tk.Frame):
                 f"Size: {fmt_size(it['bytes']) if it['bytes'] is not None else 'unknown'}"]
 
     def context_menu(self, i, x, y):
-        """Right-click on a file (either view)."""
+        """Right-click on a file (either view): Rename / Duplicate / Remove."""
         if self.busy:
             return
-        menu = tk.Menu(self, tearoff=0, font=FONT, bg=BG, fg="black", bd=1,
-                       activebackground="#316AC5", activeforeground="white")
+        menu = PopupMenu(self)  # drawn by the app: the same thin frame in light and dark
+        menu.add_command(label="Rename", command=lambda: self.rename_item(i))
+        menu.add_command(label="Duplicate", command=lambda: self.duplicate_item(i))
+        menu.add_separator()
         menu.add_command(label="Remove", command=self.remove_files)  # same as the button
         try:
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
+
+    def rename_item(self, i):
+        """Renames the converted file only - the original on disk is never touched."""
+        def apply(name):
+            self.items[i]["name"] = name
+            self.status.config(text=f"Will be saved as \"{name}\".", fg="black")
+            self.files_box.refresh()
+        rename_dialog(self, self.out_base(self.items[i]), apply, lambda: self.busy)
+
+    def duplicate_item(self, i):
+        """Adds a copy right after it, to convert it twice (e.g. two sizes). Nothing is
+        saved until Convert."""
+        if self.busy:
+            return
+        it = self.items[i]
+        name = copy_name(self.out_base(it), {self.out_base(x) for x in self.items})
+        self.items.insert(i + 1, dict(it, name=name, status="Ready"))  # same file and info
+        self.selected, self.last_click = {i + 1}, i + 1  # select the new copy
+        self.status.config(text=f"Duplicated. {len(self.items)} {self.NOUN}(s) selected.",
+                           fg="black")
+        self.files_box.refresh()
 
     def set_status(self, i, text):
         self.items[i]["status"] = text
@@ -2582,7 +3144,7 @@ class VideoPanel(tk.Frame):
             dialog("Master Converter", f"Add some {self.NOUN}s first.", sound="error")
             return
         label = self.fmt.get()
-        jobs = [(i, it["path"], it["info"]) for i, it in enumerate(self.items)]
+        jobs = [(i, it["path"], it["info"], self.out_base(it)) for i, it in enumerate(self.items)]
         settings = self.job_settings()
         for it in self.items:
             it["status"] = "Waiting"
@@ -2605,7 +3167,7 @@ class VideoPanel(tk.Frame):
         """Off the main thread: talks to the window only through `events`."""
         ext = self.job_ext(settings)
         done, errors = [], []
-        for i, src, info in jobs:
+        for i, src, info, base in jobs:
             if self._cancel:
                 break
             name = os.path.basename(src)
@@ -2616,7 +3178,6 @@ class VideoPanel(tk.Frame):
                 errors.append(f"{name}: {problem}")
                 events.put(("end", i, "Failed"))
                 continue
-            base = os.path.splitext(name)[0]
             dst = unique_path(outdir or os.path.dirname(src), base, ext)
             ok, msg = run_ffmpeg(self, self.job_args(src, dst, settings, info),
                                  dst, info["duration"],
@@ -3191,10 +3752,10 @@ class GifPanel(tk.Frame):
     def film_image(self, fw, fh):
         """The strip of frames across the whole bar, square cells, each showing the frame
         nearest the time under its middle."""
-        key = (fw, fh, len(self.thumbs))
+        key = (fw, fh, len(self.thumbs), DARK_MODE)
         if self._film_cache and self._film_cache[0] == key:
             return self._film_cache[1]
-        film = Image.new("RGB", (fw, fh), "#D8D8D8")  # light grey until the frames load
+        film = Image.new("RGB", (fw, fh), themed("#D8D8D8"))  # grey until the frames load
         x0 = self.inner_box()[0]
         cells = max(1, round(fw / fh))
         for c in range(cells):
@@ -3264,7 +3825,8 @@ class GifPanel(tk.Frame):
         for a, b in ((0, xs - ix0 - 1), (xe - ix0 - 1, fw)):  # grey out the parts left out
             if b > a:
                 part = film.crop((a, 0, b, fh))
-                film.paste(Image.blend(part, Image.new("RGB", part.size, self.TL_DIM), 0.65), (a, 0))
+                film.paste(Image.blend(part, Image.new("RGB", part.size, themed(self.TL_DIM)),
+                                       0.65), (a, 0))
         self._film_photo = ImageTk.PhotoImage(film)
         c.create_image(ix0 + 1, fy0, image=self._film_photo, anchor="nw")
         # the chosen part is the "clip": a boxed piece with the file's name on its title band
