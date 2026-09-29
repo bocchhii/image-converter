@@ -23,7 +23,17 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Build the installer
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
+        # the version comes from the tag: v2.0.0 -> "2.0.0" (a run started by hand, with no
+        # tag, keeps the default in installer.iss)
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+            & $iscc "/DMyAppVersion=$version" installer.iss
+          } else {
+            & $iscc installer.iss
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Keep the installer as a build artifact
         uses: actions/upload-artifact@v4
         with:
