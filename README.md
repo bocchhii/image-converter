@@ -1,7 +1,7 @@
 # Master Converter
 
-A free, offline Windows app for converting **images, videos and sound** - and for making **GIFs** -
-with a classic Windows look. Everything runs on your own PC: no uploads, no accounts, no ads.
+A free, offline Windows app for converting **images, videos and sound** - and making **GIFs** -
+with a classic Windows XP look. Everything runs on your own PC: no accounts, no ads.
 
 ## Features
 
@@ -36,7 +36,6 @@ with a classic Windows look. Everything runs on your own PC: no uploads, no acco
 - Select several files with Ctrl / Shift / dragging; hover a file for its details.
 - "Show converted files" opens the folder with the new files highlighted.
 - Never overwrites anything: a name that's taken gets `_converted1`, `_converted2`, ...
-- Windows XP-style sounds: a soft chime when a job is done, a low tone when something fails.
 - **Dark mode**: the small moon / sun button at the right end of the tabs switches the whole app
   between light and dark, and it remembers your choice.
 
