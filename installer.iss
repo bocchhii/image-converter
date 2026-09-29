@@ -1,11 +1,13 @@
-; Inno Setup script - builds ImageConverter-Setup.exe
-#define MyAppName "Image Converter"
+; Inno Setup script - builds MasterConverter-Setup.exe
+#define MyAppName "Master Converter"
 #ifndef MyAppVersion
   #define MyAppVersion "1.0.0"
 #endif
-#define MyAppExe "ImageConverter.exe"
+#define MyAppExe "MasterConverter.exe"
 
 [Setup]
+; same AppId as when the app was called "Image Converter", so installing this
+; upgrades an old install instead of adding a second copy
 AppId={{B7D2F3A1-5C4E-4E7A-9F11-3A6C2D8E4B90}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -16,7 +18,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=installer_output
-OutputBaseFilename=ImageConverter-Setup
+OutputBaseFilename=MasterConverter-Setup
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 Compression=lzma2
@@ -25,6 +27,12 @@ WizardStyle=modern
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+
+[InstallDelete]
+; left over from when the app was called "Image Converter"
+Type: files; Name: "{app}\ImageConverter.exe"
+Type: files; Name: "{autoprograms}\Image Converter.lnk"
+Type: files; Name: "{autodesktop}\Image Converter.lnk"
 
 [Files]
 Source: "dist\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion

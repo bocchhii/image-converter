@@ -1,59 +1,100 @@
-# Image Converter
+# Master Converter
 
-A small offline tool that converts images between formats (PNG, JPEG, WEBP, HEIC, ...).
+A free, offline Windows app for converting **images, videos and sound** - and for making **GIFs** -
+with a classic Windows look. Everything runs on your own PC: no uploads, no accounts, no ads.
 
-## What's in this folder
+## Features
+
+### Images
+- Convert between **PNG, JPEG, WEBP, AVIF, HEIC, GIF, BMP, TIFF, ICO, PDF, TGA, PPM, JPEG 2000,
+  DDS, PCX, SVG** and **RAW pixel data**.
+- Opens **camera RAW photos** (Canon CR2/CR3, Nikon NEF, Sony ARW, DNG, Fujifilm RAF, Olympus ORF,
+  Panasonic RW2, ...) and **SVG drawings**, as well as all of the above.
+- Quality slider for JPEG / WEBP / AVIF / HEIC; keeps photo info (date, camera, GPS) if you want.
+- Rename or duplicate files before converting (right-click).
+
+### Videos
+- Convert to **MP4, WEBM, MKV, MOV, AVI, GIF**, or keep just the sound as **MP3**.
+- Quality, size (4K ... 360p), frame rate, and "remove sound" options.
+- Live progress per file, and a Cancel button.
+
+### Voice
+- Convert sound between **MP3, WAV, M4A (AAC), FLAC, OGG, OPUS, AIFF, WMA** - or take the sound
+  out of a video.
+- Quality (**Original** keeps each file's own quality, copying it untouched when the format
+  doesn't change), sample rate, and stereo / mono.
+
+### GIF Maker
+- Open a video (or a GIF), pick the part you want on a Movie Maker-style timeline, preview it,
+  and save it as a GIF that **loops forever or plays once**.
+- Shows the expected file size before you make it.
+
+### Everywhere
+- Drag & drop files or whole folders.
+- Two views of your files: **thumbnails** or **details** - switch with the button or
+  **Ctrl + mouse wheel**.
+- Select several files with Ctrl / Shift / dragging; hover a file for its details.
+- "Show converted files" opens the folder with the new files highlighted.
+- Never overwrites anything: a name that's taken gets `_converted1`, `_converted2`, ...
+- Windows XP-style sounds: a soft chime when a job is done, a low tone when something fails.
+
+---
+
+## Download and install (for users)
+
+1. Go to the [**Releases**](../../releases/latest) page and download **MasterConverter-Setup.exe**.
+2. Run it. If Windows shows **"Windows protected your PC"**, click **More info -> Run anyway**
+   (see the note below).
+3. Click **Next -> Install -> Finish**, then open **Master Converter** from the Start menu.
+
+To uninstall: **Settings -> Apps -> Installed apps -> Master Converter -> Uninstall**.
+
+> **About the "Windows protected your PC" warning:** Windows shows it for any program from an
+> unknown publisher. It doesn't mean the app is unsafe - the app just isn't digitally signed
+> (that needs a paid code-signing certificate).
+
+---
+
+## Run from the source code
+
+Needs [Python](https://www.python.org/downloads/) 3.10 or newer (tick **Add python.exe to PATH**
+when installing).
+
+```
+pip install -r requirements.txt
+python master_converter.py
+```
+
+## Build the installer yourself
+
+**On your own PC:** install [Inno Setup](https://jrsoftware.org/isdl.php) (free), then double-click
+**`build.bat`**. It makes `dist\MasterConverter.exe` and the installer
+`installer_output\MasterConverter-Setup.exe`.
+
+**With GitHub (automatic):** push a tag such as `v1.0.0` (or create a release with that tag on
+GitHub). The workflow in `.github/workflows/release.yml` builds the installer in the cloud and
+attaches it to the release - watch the **Actions** tab; it takes about 5 minutes.
+For a new version, publish a new tag: `v1.0.1`, `v1.1.0`, ...
+
+## What's in this repository
 
 | File | What it is |
 |---|---|
-| `image_converter.py` | the app itself |
-| `icon.ico` / `icon.png` | the app icon (replace these to change it) |
-| `build.bat` | one click: builds `ImageConverter.exe` and the `Setup` file |
-| `installer.iss` | the recipe for the Setup file (used by Inno Setup) |
-| `.github/workflows/release.yml` | builds and publishes a download page automatically |
+| `master_converter.py` | the whole app |
+| `requirements.txt` | the Python packages it needs |
+| `icon.ico` / `icon.png` | the app icon (replace both, keeping the names, to change it) |
+| `build.bat` | one click: builds the .exe and the installer on your PC |
+| `installer.iss` | the recipe for the installer (used by Inno Setup) |
+| `.github/workflows/release.yml` | builds the installer on GitHub for every release tag |
 
----
+## Built with
 
-## Option A - build the Setup file on your own PC (10 minutes)
+- [Pillow](https://python-pillow.org/) and [pillow-heif](https://github.com/bigcat88/pillow_heif) - images, HEIC
+- [FFmpeg](https://ffmpeg.org/) via [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) - video, sound, GIFs
+- [LibRaw](https://www.libraw.org/) via [rawpy](https://github.com/letmaik/rawpy) - camera RAW photos
+- [resvg](https://github.com/linebender/resvg) via [resvg_py](https://github.com/baseplate-admin/resvg-py) - SVG drawings
+- [tkinterdnd2](https://github.com/Eliav2/tkinterdnd2) - drag & drop
+- [PyInstaller](https://pyinstaller.org/) and [Inno Setup](https://jrsoftware.org/isinfo.php) - the .exe and the installer
 
-1. Install **Python** from https://www.python.org/downloads/ (tick **Add python.exe to PATH**).
-2. Install **Inno Setup** (free) from https://jrsoftware.org/isdl.php.
-3. Double-click **`build.bat`**.
-4. When it says DONE, your installer is at **`installer_output\ImageConverter-Setup.exe`**.
-5. Send that one file to people (Google Drive, Dropbox, WeTransfer, ...).
-
-## Option B - get a real download link with GitHub (recommended)
-
-This builds the Setup file for you in the cloud and gives you a permanent link.
-
-1. Make a free account at https://github.com and create a **new repository** (e.g. `image-converter`).
-2. Upload everything in this folder to it (including the hidden `.github` folder).
-3. Go to the repository -> **Releases** -> **Create a new release**, type the tag **`v1.0.0`**
-   and publish it (or push the tag from git).
-4. Wait ~5 minutes (watch the **Actions** tab). The Setup file appears on the release page.
-5. Send people this link (replace the names):
-   `https://github.com/YOUR-USERNAME/image-converter/releases/latest`
-
-For a new version, change the code, then publish a new release with the tag `v1.0.1`, `v1.1.0`, etc.
-
----
-
-## What your users do
-
-1. Open your link and download **ImageConverter-Setup.exe**.
-2. Double-click it. If Windows shows **"Windows protected your PC"**, click
-   **More info -> Run anyway** (see the note below).
-3. Click **Next -> Install -> Finish**.
-4. Open **Image Converter** from the Start menu (or the desktop shortcut if they ticked it).
-
-To uninstall: **Settings -> Apps -> Installed apps -> Image Converter -> Uninstall**.
-
-### About the "Windows protected your PC" warning
-Windows shows it for any program from an unknown publisher. It doesn't mean the app is unsafe -
-the app is simply not digitally signed. Removing the warning needs a paid code-signing
-certificate (or a service such as Azure Trusted Signing). For sharing with friends, telling them
-to click **More info -> Run anyway** is normal.
-
-## Changing the icon
-The icon is already your own design. To change it, replace `icon.ico` and `icon.png` (keep the names) and build again.
-Tip: this very app can convert any picture to **ICO** for you.
+Each of these has its own license. Note that the FFmpeg build bundled by imageio-ffmpeg is
+licensed under the GPL, which applies when you distribute the built app.

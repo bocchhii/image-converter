@@ -1,0 +1,8 @@
+# what Master Converter needs to run:  pip install -r requirements.txt
+pillow            # images
+pillow-heif       # HEIC / HEIF (iPhone photos)
+tkinterdnd2       # drag & drop from Explorer
+imageio-ffmpeg    # ffmpeg, for video, sound and GIFs
+rawpy             # camera RAW photos (LibRaw)
+resvg_py          # SVG drawings
+numpy             # the done / error sounds (also used by rawpy)

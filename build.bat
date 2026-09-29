@@ -1,19 +1,19 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo ===== Image Converter: build =====
+echo ===== Master Converter: build =====
 
 python --version >nul 2>&1
 if errorlevel 1 goto :nopython
 
 python -m pip install --upgrade pip
-python -m pip install pillow pillow-heif tkinterdnd2 pyinstaller
+python -m pip install -r requirements.txt pyinstaller
 if errorlevel 1 goto :fail
 
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name ImageConverter --icon icon.ico --add-data "icon.ico;." --add-data "icon.png;." --collect-all tkinterdnd2 --collect-all pillow_heif image_converter.py
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name MasterConverter --icon icon.ico --add-data "icon.ico;." --add-data "icon.png;." --collect-all tkinterdnd2 --collect-all pillow_heif --collect-all imageio_ffmpeg --collect-all rawpy --collect-all resvg_py master_converter.py
 if errorlevel 1 goto :fail
 echo.
-echo Built the app: dist\ImageConverter.exe
+echo Built the app: dist\MasterConverter.exe
 
 set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
@@ -22,7 +22,7 @@ if not exist "%ISCC%" goto :noinno
 "%ISCC%" installer.iss
 if errorlevel 1 goto :fail
 echo.
-echo DONE! Send this file to people: installer_output\ImageConverter-Setup.exe
+echo DONE! Send this file to people: installer_output\MasterConverter-Setup.exe
 goto :end
 
 :noinno
