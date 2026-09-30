@@ -696,6 +696,7 @@ class ClassicWindow:
         self.resizable, self.min_size = resizable, min_size
         self.maximized, self.normal_geo, self.active = False, None, True
         self.pressed, self.down = None, False  # title-bar button held down, and shown down?
+        self.on_update = None  # set_update_button: shows the green "update" button when set
         self._move, self._resize, self._grad = None, None, None
         win.title(title)  # still shown on the taskbar and in Alt+Tab
         if sys.platform != "win32":
@@ -827,10 +828,17 @@ class ClassicWindow:
             self.active = active
             self.draw()
 
+    def set_update_button(self, on_click):
+        """Show a green download-arrow button left of _ that calls on_click (None hides it)."""
+        self.on_update = on_click
+        if hasattr(self, "bar"):
+            self.draw()
+
     # ---- drawing ----
     def buttons(self):
         """[(kind, x0, y0)] from the right: X, [] and _ side by side with no gaps; X keeps
-        the same distance from the bar's right edge as from its top (3 px)."""
+        the same distance from the bar's right edge as from its top (3 px). The update button,
+        when shown, sits a little apart to the left of them."""
         W = self.bar.winfo_width()
         margin = (self.TITLE_H - self.BTN_H) // 2  # 3 px from the bar's right edge
         y = margin + 1  # 1 px lower than exactly centred: 4 px above, 3 below
@@ -839,7 +847,10 @@ class ClassicWindow:
         if self.resizable:
             x -= self.BTN_W
             out.append(("restore" if self.maximized else "max", x, y))
-            out.append(("min", x - self.BTN_W, y))
+            x -= self.BTN_W
+            out.append(("min", x, y))
+        if self.on_update:
+            out.append(("update", x - 8 - self.BTN_W, y))  # 8 px gap before _
         return out
 
     def draw(self):
@@ -893,6 +904,12 @@ class ClassicWindow:
             px(4, 9, 5, 14)
             px(12, 9, 13, 14)
             px(4, 13, 13, 14)
+        elif kind == "update":  # arrow down onto a line, x 5-14, y 2-13, 2-px strokes like X
+            px(9, 2, 11, 9)  # shaft, ending inside the head so the tip stays sharp
+            for i in range(5):  # head: drawn with the X's strokes
+                px(5 + i, 6 + i, 7 + i, 7 + i)
+                px(13 - i, 6 + i, 15 - i, 7 + i)
+            px(6, 12, 14, 14)  # the line: the same as _
         else:  # close: a 2-px-thick X, x 5-14, y 5-13
             for i in range(9):
                 px(5 + i, 5 + i, 7 + i, 6 + i)
@@ -927,7 +944,7 @@ class ClassicWindow:
             self.draw()
             if self.button_at(e.x, e.y) == kind:  # released on the same button: do it
                 {"close": self.on_close, "min": self.minimize, "max": self.toggle_maximize,
-                 "restore": self.toggle_maximize}[kind]()
+                 "restore": self.toggle_maximize, "update": self.on_update}[kind]()
 
     def bar_double(self, e):
         if not self.button_at(e.x, e.y):
@@ -2467,7 +2484,8 @@ class App(BaseTk):
         if parse_version(version) <= parse_version(APP_VERSION):
             return  # up to date
         if load_settings().get("skipped_version") == version:
-            return  # they chose to skip this one
+            self.show_update_button(version, notes, url)  # skipped: no box, just the button
+            return
         choice = dialog("Update available",
                         f"Master Converter {version} is available.\nYou have version {APP_VERSION}.",
                         ("Update now", "Remind me later", "Skip this version"), sound="done")
@@ -2475,7 +2493,18 @@ class App(BaseTk):
             self.install_update(version, notes, url)
         elif choice == "Skip this version":
             save_settings(skipped_version=version)
+            self.show_update_button(version, notes, url)
         # "Remind me later" (or closing the box): ask again next time the app starts
+
+    def show_update_button(self, version, notes, url):
+        """The green arrow in the title bar: a skipped update can still be installed from it."""
+        def clicked():
+            choice = dialog("Update available",
+                            f"Master Converter {version} is available.\nYou have version {APP_VERSION}.",
+                            ("Update now", "Not now"))
+            if choice == "Update now":
+                self.install_update(version, notes, url)
+        self.chrome.set_update_button(clicked)
 
     def install_update(self, version, notes, url):
         """Download the new installer (with a progress bar), run it silently - no questions:
