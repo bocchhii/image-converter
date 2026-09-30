@@ -146,7 +146,8 @@ BG, BLUE, DARK = "#ECE9D8", "#245EDC", "#0A246A"
 THEME = "xp"  # the theme the widgets are in now (they're made in "xp", then switched)
 DARK_MODE = False  # THEME == "dark"
 DARK_FACE, DARK_BOX, DARK_TEXT = "#353535", "#1E1E1E", "#E8E8E8"
-THEME_NAMES = {"98": "Windows 98", "xp": "Windows 98 Ivory", "dark": "Windows 98 Dark"}
+THEME_NAMES = {"98": "Windows 98", "xp": "Windows 98 Ivory", "dark": "Windows 98 Dark",
+               "pink": "Windows 98 Pink", "jungle": "Windows 98 Jungle"}
 DEFAULT_THEME = "98"
 THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role: {...}})
     "xp": ({}, {}),
@@ -189,7 +190,90 @@ THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role:
         "box": {"#ffffff": DARK_BOX, "#000000": DARK_TEXT},  # box backgrounds; black shapes
         "edge": {"#ffffff": "#5e5e5e", "#8e8c82": "#1b1b1b", "#000000": "#000000"},  # 3D edges
     }),
+    "pink": ({  # pink windows, teal title bars (colours taken from the reference picture)
+        "#ece9d8": "#F3C0C9",  # window / button face (BG)
+        "#f5f3e8": "#F6CFD6",  # pressed button face
+        "#8e8c82": "#E0566E",  # 3D edges' shadow
+        "#efefef": "#F9DFE3",  # scrollbar track
+        "#ebe8d7": "#E9B3BD",  # under the menu bar's line: the face, a touch darker
+        "#f7f6f0": "#F9DFE2",  # the lists' scrollbar trough
+        "#ffffe1": "#CBFEFE",  # hover tooltip: light cyan
+        "#999999": "#DE4B65",  # greyed-out text
+        "#808080": "#DD4A64",  # ... (the right-click menu's)
+        "#cccccc": "#EDA9B5",  # scrollbar thumb
+        "#a6a6a6": "#E7919F",  # ... under the mouse
+        "#606060": "#B84A5D",  # ... held down / ruler ticks
+        "#dadada": "#F7D6DC",  # scrollbar arrow under the mouse
+        "#5f5f5f": "#84414D",  # scrollbar arrows
+        "#b0b0b0": "#E7A2AE",  # picture box border
+        "#a0a0a0": "#E29AA7",  # timeline lines
+        "#e4e4e4": "#F7E3E6",  # picture still loading
+        "#d8d8d8": "#F2D2D8",  # filmstrip still loading
+        "#888888": "#BD6878",  # hint text
+        "#666666": "#7E3F4B",  # grey text
+        "#7da2ce": "#6FC9BE",  # a picture box under the mouse
+        "#245edc": "#00A9A6",  # the dragged selection rectangle
+        "#5a8be0": "#3CC4C0",  # GIF Maker's playhead
+        "#1f4fae": "#008C89",  # ... its edge
+        "#a9c4f5": "#B5EFEB",  # ... its shine
+    }, {
+        "box": {"#ffffff": "#F3FEFE"},  # box backgrounds: a very light cyan
+        "edge": {"#ffffff": "#F8DDDE", "#000000": "#704049"},  # 3D edges: light / darkest
+    }),
+    "jungle": ({  # Windows 98's Jungle desktop theme (colours taken from the reference picture)
+        "#ece9d8": "#B69F67",  # window / button face (BG)
+        "#f5f3e8": "#C1AB75",  # pressed button face
+        "#8e8c82": "#685832",  # 3D edges' shadow
+        "#efefef": "#DFD0B8",  # scrollbar track
+        "#ebe8d7": "#AA935C",  # under the menu bar's line: the face, a touch darker
+        "#f7f6f0": "#DFD0B7",  # the lists' scrollbar trough
+        "#ffffe1": "#EDE2C6",  # hover tooltip: light khaki
+        "#999999": "#D2BE90",  # greyed-out text
+        "#808080": "#D1BD8F",  # ... (the right-click menu's)
+        "#cccccc": "#C9B587",  # scrollbar thumb
+        "#a6a6a6": "#B19B63",  # ... under the mouse
+        "#606060": "#5E4F2C",  # ... held down / ruler ticks
+        "#dadada": "#E8DCC6",  # scrollbar arrow under the mouse
+        "#5f5f5f": "#4A3C1C",  # scrollbar arrows
+        "#b0b0b0": "#B8A67A",  # picture box border
+        "#a0a0a0": "#A8955F",  # timeline lines
+        "#e4e4e4": "#EEE7D8",  # picture still loading
+        "#d8d8d8": "#E4D9C2",  # filmstrip still loading
+        "#888888": "#6F5B30",  # hint text
+        "#666666": "#4A3A18",  # grey text
+        "#7da2ce": "#B0402A",  # a picture box under the mouse
+        "#245edc": "#7C0000",  # the dragged selection rectangle
+        "#5a8be0": "#C04818",  # GIF Maker's playhead
+        "#1f4fae": "#600000",  # ... its edge
+        "#a9c4f5": "#FFA858",  # ... its shine
+    }, {
+        "edge": {"#ffffff": "#D8C592", "#000000": "#281602"},  # 3D edges: light / darkest
+    }),
 }
+# what each theme's title bars and selections look like: the inactive title bar (left,
+# right), the title text (active, inactive), and a selection's background and text
+THEME_LOOK = {
+    "xp": (("#808080", "#A8A8A8"), ("#FFFFFF", "#D4D0C8"), ("#316AC5", "#FFFFFF")),
+    "98": (("#808080", "#A8A8A8"), ("#FFFFFF", "#C3C3C3"), ("#316AC5", "#FFFFFF")),
+    "dark": (("#808080", "#A8A8A8"), ("#FFFFFF", "#D4D0C8"), ("#316AC5", "#FFFFFF")),
+    "pink": (("#00B8A8", "#F18EA1"), ("#FFFFFF", "#00544C"), ("#A1DAD1", "#000000")),
+    "jungle": (("#7D7040", "#7D7040"), ("#FFA040", "#903018"), ("#800000", "#FFA040")),
+}
+
+
+def caption_inactive():
+    """The current theme's inactive title bar colours (left, right)."""
+    return THEME_LOOK[THEME][0]
+
+
+def title_text(active):
+    """The current theme's title text colour."""
+    return THEME_LOOK[THEME][1][0 if active else 1]
+
+
+def select_colors():
+    """The current theme's selection: (background, text)."""
+    return THEME_LOOK[THEME][2]
 _ROLES = ("text", "box", "edge", "face")
 _TO = {t: {r: {k: v.lower() for k, v in {**any_, **roles.get(r, {})}.items()} for r in _ROLES}
        for t, (any_, roles) in THEME_COLORS.items()}  # all lowercase, so both ways look up alike
@@ -296,31 +380,40 @@ _SYSTEM_DARK = {  # Tk's own default colours ("SystemButtonText"...) in dark mod
     "insertbackground": DARK_TEXT, "disabledforeground": "#7a7a7a", "selectcolor": DARK_BOX,
     "troughcolor": "#262626", "highlightbackground": DARK_FACE, "activebackground": "#474747",
     "bg": DARK_FACE, "background": DARK_FACE}
-_system_colors = {}  # (widget, option) -> the Tk default it had in light mode, to put back
+SYSTEM_COLORS = {  # the Tk default colours each theme changes (the others keep Windows' own)
+    "dark": _SYSTEM_DARK,
+    "pink": {"disabledforeground": "#DE4B65", "selectcolor": "#F3FEFE",  # greyed text; tick boxes
+             "selectbackground": "#A1DAD1", "selectforeground": "#000000"},  # selected text
+    "jungle": {"disabledforeground": "#D2BE90",
+               "selectbackground": "#800000", "selectforeground": "#FFA040"},
+}
+_SYSTEM_OPTS = list(dict.fromkeys(o for colors in SYSTEM_COLORS.values() for o in colors))
+_system_colors = {}  # (widget, option) -> the Tk default it had before, to put back
 
 
 def retheme(widget, old, new):
     """Switch one existing widget (and a canvas's drawings) from theme old to theme new."""
-    dark = new == "dark"
+    system = SYSTEM_COLORS.get(new, {})
 
     def convert(val, role):
         return theme_color(written_color(val, role, old), role, new)
-    for opt in _SYSTEM_DARK:
+    for opt in _SYSTEM_OPTS:
         try:
             val = str(widget.cget(opt))
         except (tk.TclError, ValueError):
             continue
+        key = (str(widget), opt)
         if val.lower().startswith("system"):  # a Tk default colour
-            if dark:
-                _system_colors[(str(widget), opt)] = val
-                to = _SYSTEM_DARK[opt]
+            if opt in system:
+                _system_colors[key] = val
+                to = system[opt]
             else:
                 continue
-        elif not dark and (str(widget), opt) in _system_colors:
-            to = _system_colors.pop((str(widget), opt))
+        elif key in _system_colors:  # a Tk default another theme changed
+            to = system[opt] if opt in system else _system_colors.pop(key)
         else:
             role = _widget_role(widget, opt)
-            to = convert(val, role) if role else val
+            to = convert(val, role) if role and opt in _SYSTEM_DARK else val
         if to != val:
             try:
                 widget.configure({opt: to})
@@ -489,7 +582,8 @@ def app_folder():
     return os.path.dirname(os.path.abspath(__file__))
 
 
-APPEARANCE_NAMES = {"98": "Light grey", "xp": "Ivory", "dark": "Dark grey"}  # Settings
+APPEARANCE_NAMES = {"98": "Light grey", "xp": "Ivory", "dark": "Dark grey", "pink": "Pink",
+                    "jungle": "Jungle"}  # Settings
 CUSTOM_THEME = "custom"  # the Theme menu's last choice: your own appearance + title bar
 
 
@@ -804,9 +898,12 @@ TITLE_PALETTES = {
     "Rose": ("#861E4E", "#D06A92"),
     "Slate": ("#2E3C4C", "#7E8EA0"),
     "Charcoal": ("#101010", "#4A4A4A"),
+    "Teal and pink": ("#00BDBA", "#DC97B8"),  # Windows 98 Pink's
+    "Jungle black": ("#000000", "#000000"),  # Windows 98 Jungle's: plain black
 }
 CUSTOM_PALETTE = "Custom..."  # the last choice in the list: pick any colour
-THEME_PALETTE = {"98": "Windows 98 blue", "xp": "Windows 98 blue", "dark": "Windows 98 blue"}  # unless one's chosen
+THEME_PALETTE = {"98": "Windows 98 blue", "xp": "Windows 98 blue", "dark": "Windows 98 blue",
+                 "pink": "Teal and pink", "jungle": "Jungle black"}  # unless one's chosen
 
 
 def palette_colors(name, custom_color=None):
@@ -822,7 +919,6 @@ def custom_palette(color):
     rgb = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
     light = [round(v + (255 - v) * 0.35) for v in rgb]
     return color.upper(), "#" + "".join(f"{v:02X}" for v in light)
-CAPTION_INACTIVE = ("#808080", "#A8A8A8")
 
 
 class ClassicWindow:
@@ -1011,8 +1107,8 @@ class ClassicWindow:
     def draw(self):
         c, W, H = self.bar, self.bar.winfo_width(), self.TITLE_H
         c.delete("all")
-        a, b = CAPTION_ACTIVE if self.active else CAPTION_INACTIVE
-        key = (W, a)
+        a, b = CAPTION_ACTIVE if self.active else caption_inactive()
+        key = (W, a, b)
         if self._grad is None or self._grad[0] != key:
             ramp = Image.new("RGB", (256, 1))
             ca, cb = [int(a[i:i + 2], 16) for i in (1, 3, 5)], [int(b[i:i + 2], 16) for i in (1, 3, 5)]
@@ -1025,7 +1121,7 @@ class ClassicWindow:
             c.create_image(x, H // 2, image=self.icon, anchor="w")
             x += self.icon.width() + 5
         c.create_text(x, H // 2, text=self.title, anchor="w", font=(FONT[0], 10, "bold"),
-                      fill="#FFFFFF" if self.active else "#D4D0C8")
+                      fill=title_text(self.active))
         for kind, x, y in self.buttons():
             self.draw_button(kind, x, y, self.pressed == kind and self.down)
 
@@ -1528,7 +1624,8 @@ class PopupMenu:
             if command is None:  # not available: greyed out, like Windows' disabled items
                 row.config(fg="#808080")
                 continue
-            row.bind("<Enter>", lambda e, r=row: r.config(bg="#316AC5", fg="white"))
+            row.bind("<Enter>", lambda e, r=row: r.config(
+                bg=select_colors()[0], fg=select_colors()[1]))
             row.bind("<Leave>", lambda e, r=row: r.config(bg=BG, fg="black"))
             row.bind("<ButtonRelease-1>", lambda e, c=command: self.choose(c))
         tk.Frame(body, bg=BG, width=self.min_width, height=0).pack()
@@ -2683,10 +2780,10 @@ class ThumbGrid(tk.Frame):
         box, label_bg, label, _ = self.rects[i]
         sel, hover = i in self.selected, i == self.hover
         self.canvas.itemconfig(box, width=2 if sel else 1,
-                               outline=self.SEL_BLUE if sel else
+                               outline=select_colors()[0] if sel else
                                self.BOX_HOVER if hover else self.BOX_LINE)
-        self.canvas.itemconfig(label_bg, fill=self.SEL_BLUE if sel else "")
-        self.canvas.itemconfig(label, fill="white" if sel else "black")
+        self.canvas.itemconfig(label_bg, fill=select_colors()[0] if sel else "")
+        self.canvas.itemconfig(label, fill=select_colors()[1] if sel else "black")
 
     def refresh_selection(self):
         """Restyle the cells only (fast: no picture redraw)."""
@@ -3509,9 +3606,14 @@ class App(BaseTk):
                     ("*Entry.background", DARK_BOX),  # text boxes: dark like the file boxes
                     ("*TCombobox*Listbox.background", DARK_BOX),
                     ("*TCombobox*Listbox.foreground", DARK_TEXT),
-                    ("*TCombobox*Listbox.selectBackground", "#316AC5"),
-                    ("*TCombobox*Listbox.selectForeground", "white")):
+                    ("*TCombobox*Listbox.selectBackground", select_colors()[0]),
+                    ("*TCombobox*Listbox.selectForeground", select_colors()[1])):
                 self.option_add(pattern, value)
+        else:
+            names = {"disabledforeground": "*disabledForeground", "selectcolor": "*selectColor",
+                     "selectbackground": "*selectBackground", "selectforeground": "*selectForeground"}
+            for opt, value in SYSTEM_COLORS.get(theme, {}).items():
+                self.option_add(names[opt], value)
         widgets = all_widgets(self)
         for w in widgets:  # everything that already exists
             retheme(w, old, theme)
@@ -3539,7 +3641,8 @@ class App(BaseTk):
                 self.tk.call(f"{popdown}.f.l", "configure",
                              "-background", theme_color("#FFFFFF", "box"),
                              "-foreground", theme_color("#000000", "text"),
-                             "-selectbackground", "#316AC5", "-selectforeground", "white")
+                             "-selectbackground", select_colors()[0],
+                             "-selectforeground", select_colors()[1])
 
     def style_ttk(self):
         """The details lists and dropdowns are ttk widgets, coloured through styles. Both modes
@@ -3552,17 +3655,18 @@ class App(BaseTk):
         face, box, text, trough, hot, grey = (
             theme_color(BG), theme_color("#FFFFFF", "box"), theme_color("#000000", "text"),
             theme_color("#F7F6F0"), theme_color("#F5F3E8"),
-            "#7a7a7a" if DARK_MODE else "#999999")
+            "#7a7a7a" if DARK_MODE else theme_color("#999999"))
+        sel, sel_text = select_colors()
         style.configure(".", background=face, foreground=text, fieldbackground=box,
-                        troughcolor=trough, selectbackground="#316AC5",
-                        selectforeground="white", arrowcolor=text, font=FONT)
+                        troughcolor=trough, selectbackground=sel,
+                        selectforeground=sel_text, arrowcolor=text, font=FONT)
         style.map(".", background=[("active", hot)])
         style.configure("Treeview", background=box, fieldbackground=box, foreground=text,
                         font=FONT)
         style.configure("Treeview.Heading", background=face, foreground=text, font=FONT,
                         relief="raised")
-        style.map("Treeview", background=[("selected", "#316AC5")],
-                  foreground=[("selected", "white")])
+        style.map("Treeview", background=[("selected", sel)],
+                  foreground=[("selected", sel_text)])
         style.map("Treeview.Heading", background=[("active", hot)])
         style.map("TCombobox",
                   fieldbackground=[("readonly", box), ("disabled", face)],
@@ -5514,7 +5618,7 @@ class GifPanel(tk.Frame):
         c.create_rectangle(ix0, ty0, ix1 - 1, iy1 - 1, fill="white", outline=self.TL_LINE,
                            dash=(1, 1))  # track, dotted border
         if not self.info:
-            c.create_text((ix0 + ix1) // 2, (ty0 + iy1) // 2, font=FONT, fill="#999999",
+            c.create_text((ix0 + ix1) // 2, (ty0 + iy1) // 2, font=FONT, fill="#888888",
                           text="Open a video to see its frames here")
             return
         # time ruler: labelled ticks at a readable spacing, small ticks in between

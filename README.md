@@ -38,7 +38,8 @@ with a classic Windows XP look. Everything runs on your own PC: no accounts, no 
 - "Show converted files" opens the folder with the new files highlighted.
 - Never overwrites anything: a name that's taken gets `_converted1`, `_converted2`, ...
 - **Themes**: the **Theme** menu switches the whole app between **Windows 98** (the default),
-  **Windows 98 Ivory** and **Windows 98 Dark**, and it remembers your choice.
+  **Windows 98 Ivory**, **Windows 98 Dark**, **Windows 98 Pink** and **Windows 98 Jungle**,
+  and it remembers your choice.
 - **Settings**: see where the app is installed, turn the sound effects on or off, and use your
   own picture as the app's icon.
 
