@@ -4,6 +4,7 @@ Setup:   pip install -r requirements.txt
 Run:     python master_converter.py
 """
 import base64
+import colorsys
 import io
 import json
 import os
@@ -136,46 +137,66 @@ def raw_dims(path):
 BG, BLUE, DARK = "#ECE9D8", "#245EDC", "#0A246A"
 
 
-# ---- light / dark mode ----
-# The app is written with light colours. In dark mode, every colour it gives Tk - when making
-# a widget, changing one, or drawing on a canvas - goes through dark_color() first, so the
-# whole app turns dark without each colour being handled one by one. Some colours depend on
-# their role: white is a box's background in one place and a 3D edge's highlight in another.
-DARK_MODE = False
+# ---- themes ----
+# The app is written with the Windows 98 Ivory (beige) colours. In any other theme, every
+# colour it gives Tk - when making a widget, changing one, or drawing on a canvas - goes
+# through theme_color() first, so the whole app changes without each colour being handled
+# one by one. Some colours depend on their role: white is a box's background in one place and
+# a 3D edge's highlight in another. A new theme is just a new table in THEME_COLORS.
+THEME = "xp"  # the theme the widgets are in now (they're made in "xp", then switched)
+DARK_MODE = False  # THEME == "dark"
 DARK_FACE, DARK_BOX, DARK_TEXT = "#353535", "#1E1E1E", "#E8E8E8"
-_DARK_ANY = {  # light colour -> dark colour, wherever it's used
-    "#ece9d8": DARK_FACE,  # window / button face (BG)
-    "#f5f3e8": "#474747",  # pressed button face
-    "#ffffe1": "#403f2c",  # tooltip
-    "#efefef": "#2b2b2b",  # scrollbar track
-    "#cccccc": "#5b5b5b",  # scrollbar thumb
-    "#a6a6a6": "#777777",  # ... under the mouse
-    "#606060": "#8c8c8c",  # ... held down / ruler ticks
-    "#dadada": "#454545",  # scrollbar arrow under the mouse
-    "#5f5f5f": "#c2c2c2",  # scrollbar arrows
-    "#b0b0b0": "#626262",  # picture box border
-    "#a0a0a0": "#6c6c6c",  # timeline lines
-    "#666666": "#b3b3b3",  # grey text
-    "#888888": "#8f8f8f",  # hint text
-    "#999999": "#727272",  # greyed-out text
-    "#303030": "#d4d4d4",  # timeline numbers
-    "#c00000": "#ff7a7a",  # red messages
-    "#e4e4e4": "#3c3c3c",  # picture still loading
-    "#d8d8d8": "#3a3a3a",  # filmstrip still loading
-    "#9a9a9a": "#1c1c1c",  # parts of the filmstrip left out
-    "#f0f0f0": "#3b3b3b",  # right-click menu's inner frame
+THEME_NAMES = {"98": "Windows 98", "xp": "Windows 98 Ivory", "dark": "Windows 98 Dark"}
+DEFAULT_THEME = "98"
+THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role: {...}})
+    "xp": ({}, {}),
+    "98": ({  # Windows 95 / 98: grey face, white boxes, black / grey / white 3D edges
+        "#ece9d8": "#C0C0C0",  # window / button face (BG)
+        "#f5f3e8": "#C8C8C8",  # pressed button face
+        "#8e8c82": "#808080",  # 3D edges' shadow
+        "#efefef": "#E0E0E0",  # scrollbar track
+        "#ebe8d7": "#BFBFBF",  # under the menu bar's line: the face, a touch darker
+        "#f7f6f0": "#DFDFDF",  # the lists' scrollbar trough
+        "#ffffe1": "#DEDEDE",  # hover tooltip (details of a file): light grey, not yellow
+        "#d4d0c8": "#C3C3C3",  # an inactive window's title text: neutral grey
+    }, {}),
+    "dark": ({
+        "#ece9d8": DARK_FACE,  # window / button face (BG)
+        "#f5f3e8": "#474747",  # pressed button face
+        "#ffffe1": "#404040",  # tooltip: a dark grey
+        "#efefef": "#2b2b2b",  # scrollbar track
+        "#cccccc": "#5b5b5b",  # scrollbar thumb
+        "#a6a6a6": "#777777",  # ... under the mouse
+        "#606060": "#8c8c8c",  # ... held down / ruler ticks
+        "#dadada": "#454545",  # scrollbar arrow under the mouse
+        "#5f5f5f": "#c2c2c2",  # scrollbar arrows
+        "#b0b0b0": "#626262",  # picture box border
+        "#a0a0a0": "#6c6c6c",  # timeline lines
+        "#666666": "#b3b3b3",  # grey text
+        "#888888": "#8f8f8f",  # hint text
+        "#999999": "#727272",  # greyed-out text
+        "#303030": "#d4d4d4",  # timeline numbers
+        "#c00000": "#ff7a7a",  # red messages
+        "#e4e4e4": "#3c3c3c",  # picture still loading
+        "#d8d8d8": "#3a3a3a",  # filmstrip still loading
+        "#9a9a9a": "#1c1c1c",  # parts of the filmstrip left out
+        "#f0f0f0": "#3b3b3b",  # right-click menu's inner frame
+        "#ebe8d7": "#333333",  # under the menu bar's line: a touch darker in dark mode
+        "#0000ee": "#8AB4FF",  # links (About's GitHub link): a light blue that reads on dark
+        "#f7f6f0": "#262626",  # the lists' scrollbar trough
+    }, {  # colours that change differently depending on what they're for
+        "text": {"#000000": DARK_TEXT, "#ffffff": "#ffffff"},  # (white text stays white)
+        "box": {"#ffffff": DARK_BOX, "#000000": DARK_TEXT},  # box backgrounds; black shapes
+        "edge": {"#ffffff": "#5e5e5e", "#8e8c82": "#1b1b1b", "#000000": "#000000"},  # 3D edges
+    }),
 }
-_DARK_ROLE = {  # colours that change differently depending on what they're for
-    "text": {"#000000": DARK_TEXT, "#ffffff": "#ffffff"},  # (white text stays white)
-    "box": {"#ffffff": DARK_BOX, "#000000": DARK_TEXT},  # box backgrounds; black shapes
-    "edge": {"#ffffff": "#5e5e5e", "#8e8c82": "#1b1b1b", "#000000": "#000000"},  # 3D edges
-    "face": {},
-}
-_TO_DARK = {r: {k: v.lower() for k, v in {**_DARK_ANY, **m}.items()}  # all lowercase, so
-            for r, m in _DARK_ROLE.items()}                           # both ways look up alike
-_TO_LIGHT = {r: {d: l for l, d in m.items()} for r, m in _TO_DARK.items()}
-for _r, _m in _TO_DARK.items():  # every dark colour must lead back to one light colour
-    assert len(set(_m.values())) == len(_m) and not set(_m.values()) & set(_m) - {"#000000", "#ffffff"}, _r
+_ROLES = ("text", "box", "edge", "face")
+_TO = {t: {r: {k: v.lower() for k, v in {**any_, **roles.get(r, {})}.items()} for r in _ROLES}
+       for t, (any_, roles) in THEME_COLORS.items()}  # all lowercase, so both ways look up alike
+_FROM = {t: {r: {v: k for k, v in m.items()} for r, m in rm.items()} for t, rm in _TO.items()}
+for _t, _rm in _TO.items():  # every theme colour must lead back to one written colour
+    for _r, _m in _rm.items():
+        assert len(set(_m.values())) == len(_m) and not set(_m.values()) & set(_m) - {"#000000", "#ffffff"}, (_t, _r)
 _NAMES = {"white": "#ffffff", "black": "#000000"}
 
 
@@ -184,19 +205,22 @@ def _norm(color):
     return "#" + "".join(ch * 2 for ch in c[1:]) if len(c) == 4 and c[0] == "#" else c
 
 
-def dark_color(color, role="face"):
-    """The dark-mode partner of a light colour (unchanged if it has none)."""
-    return _TO_DARK[role].get(_norm(color), color) if isinstance(color, str) else color
+def theme_color(color, role="face", theme=None):
+    """A written (Ivory) colour in a theme - the current one unless given (unchanged if
+    the theme doesn't change it)."""
+    theme = theme or THEME
+    return _TO[theme][role].get(_norm(color), color) if isinstance(color, str) else color
 
 
-def light_color(color, role="face"):
-    """The other way: a dark-mode colour back to its light one."""
-    return _TO_LIGHT[role].get(_norm(color), color) if isinstance(color, str) else color
+def written_color(color, role="face", theme=None):
+    """The other way: a theme's colour back to the colour the app wrote."""
+    theme = theme or THEME
+    return _FROM[theme][role].get(_norm(color), color) if isinstance(color, str) else color
 
 
 def themed(color, role="face"):
-    """A colour for the current mode - for pictures drawn with Pillow, which Tk doesn't see."""
-    return dark_color(color, role) if DARK_MODE else color
+    """A colour for the current theme - for pictures drawn with Pillow, which Tk doesn't see."""
+    return theme_color(color, role)
 
 
 # which role a widget's colour options play; a widget's own background depends on its kind:
@@ -230,7 +254,7 @@ def _map_opts(opts, role_of):
     for k, v in opts.items():
         role = role_of(k.lstrip("-"))
         if role:
-            out[k] = dark_color(v, role)
+            out[k] = theme_color(v, role)
     return out
 
 
@@ -240,13 +264,13 @@ _orig_itemconfigure = tk.Canvas.itemconfigure
 
 
 def _themed_options(self, cnf, kw=None):  # every widget made or changed
-    if DARK_MODE:
+    if THEME != "xp":
         cnf, kw = (_map_opts(o, lambda k: _widget_role(self, k)) for o in (cnf, kw))
     return _orig_options(self, cnf, kw)
 
 
 def _themed_create(self, item_type, args, kw):  # every shape drawn on a canvas
-    if DARK_MODE:
+    if THEME != "xp":
         pick = lambda k: _item_role(item_type, k) if k in ("fill", "outline") else None  # noqa: E731
         kw = _map_opts(kw, pick)
         args = list(args)
@@ -256,7 +280,7 @@ def _themed_create(self, item_type, args, kw):  # every shape drawn on a canvas
 
 
 def _themed_itemconfigure(self, tag_or_id, cnf=None, **kw):  # every shape changed
-    if DARK_MODE and (cnf or kw):
+    if THEME != "xp" and (cnf or kw):
         item_type = self.type(tag_or_id)
         pick = lambda k: _item_role(item_type, k) if k in ("fill", "outline") else None  # noqa: E731
         cnf, kw = _map_opts(cnf, pick), _map_opts(kw, pick)
@@ -275,9 +299,12 @@ _SYSTEM_DARK = {  # Tk's own default colours ("SystemButtonText"...) in dark mod
 _system_colors = {}  # (widget, option) -> the Tk default it had in light mode, to put back
 
 
-def retheme(widget, dark):
-    """Switch one existing widget (and a canvas's drawings) to the new mode."""
-    convert = dark_color if dark else light_color
+def retheme(widget, old, new):
+    """Switch one existing widget (and a canvas's drawings) from theme old to theme new."""
+    dark = new == "dark"
+
+    def convert(val, role):
+        return theme_color(written_color(val, role, old), role, new)
     for opt in _SYSTEM_DARK:
         try:
             val = str(widget.cget(opt))
@@ -286,17 +313,17 @@ def retheme(widget, dark):
         if val.lower().startswith("system"):  # a Tk default colour
             if dark:
                 _system_colors[(str(widget), opt)] = val
-                new = _SYSTEM_DARK[opt]
+                to = _SYSTEM_DARK[opt]
             else:
                 continue
         elif not dark and (str(widget), opt) in _system_colors:
-            new = _system_colors.pop((str(widget), opt))
+            to = _system_colors.pop((str(widget), opt))
         else:
             role = _widget_role(widget, opt)
-            new = convert(val, role) if role else val
-        if new != val:
+            to = convert(val, role) if role else val
+        if to != val:
             try:
-                widget.configure({opt: new})
+                widget.configure({opt: to})
             except tk.TclError:
                 pass
     if isinstance(widget, tk.Canvas):
@@ -307,24 +334,9 @@ def retheme(widget, dark):
                     val = widget.itemcget(item, opt)
                 except tk.TclError:
                     continue
-                new = convert(val, _item_role(item_type, opt)) if val else val
-                if new != val:
-                    widget.itemconfigure(item, {opt: new})
-
-
-def theme_icon(kind):
-    """12 px icon for the light/dark button: a moon (click for dark), a sun (click for light)."""
-    im = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    if kind == "moon":
-        d.ellipse([1, 1, 10, 10], fill="#1F2D5C")
-        d.ellipse([4, -1, 13, 8], fill=(0, 0, 0, 0))  # bite out of it: a crescent
-    else:
-        d.ellipse([3, 3, 8, 8], fill="#FFD24A")
-        for x0, y0, x1, y1 in ((5, 0, 6, 1), (5, 10, 6, 11), (0, 5, 1, 6), (10, 5, 11, 6),
-                               (1, 1, 2, 2), (9, 1, 10, 2), (1, 9, 2, 10), (9, 9, 10, 10)):
-            d.rectangle([x0, y0, x1, y1], fill="#FFD24A")  # rays
-    return ImageTk.PhotoImage(im)
+                to = convert(val, _item_role(item_type, opt)) if val else val
+                if to != val:
+                    widget.itemconfigure(item, {opt: to})
 
 
 # ---- updates: new versions come from this project's GitHub Releases ----
@@ -377,7 +389,7 @@ def notes_dialog(parent, heading, notes):
     win.transient(owner)
     body = ClassicWindow(win, "Master Converter", win.destroy, resizable=False,
                          taskbar=False).body
-    tk.Label(body, text=heading, bg=BG, font=("Tahoma", 9, "bold"), justify="left",
+    tk.Label(body, text=heading, bg=BG, font=(FONT[0], FONT[1], "bold"), justify="left",
              anchor="w").pack(fill="x", padx=12, pady=(12, 6))
     box = tk.Frame(body, bg=BG)
     box.pack(padx=12)
@@ -409,6 +421,49 @@ def notes_dialog(parent, heading, notes):
 
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
                              "Master Converter", "settings.json")
+CUSTOM_ICON = os.path.join(os.path.dirname(SETTINGS_PATH), "custom_icon.png")  # Settings > App icon
+
+
+def app_folder():
+    """Where Master Converter is: the installed .exe's folder, or the script's."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+APPEARANCE_NAMES = {"98": "Light grey", "xp": "Ivory", "dark": "Dark grey"}  # Settings
+CUSTOM_THEME = "custom"  # the Theme menu's last choice: your own appearance + title bar
+
+
+def saved_theme(settings):
+    """The Theme menu's choice: a built-in theme, or "custom". (Older settings: "dark": true
+    was dark mode; a title bar colour chosen before there was a Custom theme becomes it.)"""
+    theme = settings.get("theme")
+    if theme == CUSTOM_THEME and settings.get("custom_theme"):
+        return theme
+    if theme not in THEME_NAMES:
+        theme = "dark" if settings.get("dark") else DEFAULT_THEME
+    if settings.get("palette") and "custom_theme" not in settings:
+        return CUSTOM_THEME
+    return theme
+
+
+def theme_look(settings, choice=None):
+    """(appearance, title bar palette name, custom colour) for a Theme menu choice."""
+    choice = choice or saved_theme(settings)
+    if choice != CUSTOM_THEME:
+        return choice, THEME_PALETTE[choice], None
+    ct = settings.get("custom_theme")
+    if ct is None:  # (from older settings: the title bar colour chosen then)
+        theme = settings.get("theme") if settings.get("theme") in THEME_NAMES else (
+            "dark" if settings.get("dark") else DEFAULT_THEME)
+        ct = {"appearance": theme, "palette": settings.get("palette"),
+              "custom_color": settings.get("custom_color")}
+    appearance = ct.get("appearance") if ct.get("appearance") in THEME_NAMES else DEFAULT_THEME
+    palette = ct.get("palette")
+    if palette not in TITLE_PALETTES and palette != CUSTOM_PALETTE:
+        palette = THEME_PALETTE[appearance]
+    return appearance, palette, ct.get("custom_color")
 
 
 def load_settings():
@@ -437,7 +492,8 @@ def all_widgets(root):
         out.append(w)
         todo.extend(w.winfo_children())
     return out
-FONT = ("Tahoma", 9)
+# MS Sans Serif: the Windows 95 / 98 dialog font (a crisp bitmap font; comes with Windows)
+FONT = ("MS Sans Serif", 8)
 
 
 # ---- video: done by ffmpeg, which the imageio-ffmpeg package ships ready-made ----
@@ -493,7 +549,7 @@ def probe_video(path):
 
 
 def ffmpeg_args(src, dst, label, quality, height, fps, mute):
-    """The ffmpeg command line for one conversion. quality is 1-100 like the image slider."""
+    """The ffmpeg command line for one conversion. quality is 0-100 like the image slider."""
     ext = VIDEO_FORMATS[label]
     args = [FFMPEG, "-hide_banner", "-nostdin", "-loglevel", "error", "-nostats",
             "-progress", "pipe:1", "-n", "-i", src]
@@ -679,7 +735,35 @@ def unique_path(folder, base, ext):
     return dst
 
 
-CAPTION_ACTIVE = ("#000085", "#0000AF")  # navy, a touch lighter to the right (from the reference)
+CAPTION_ACTIVE = ("#000080", "#1084D0")  # Windows 98: navy fading to light blue
+# Settings > Color palette: the active title bar's colours (left, right)
+TITLE_PALETTES = {
+    "Windows 98 blue": ("#000080", "#1084D0"),
+    "Teal": ("#006A6A", "#2AA8A8"),
+    "Plum": ("#4B1466", "#9A58BE"),
+    "Maroon": ("#700000", "#B83A3A"),
+    "Forest green": ("#1F5A1F", "#5E9E4A"),
+    "Rose": ("#861E4E", "#D06A92"),
+    "Slate": ("#2E3C4C", "#7E8EA0"),
+    "Charcoal": ("#101010", "#4A4A4A"),
+}
+CUSTOM_PALETTE = "Custom..."  # the last choice in the list: pick any colour
+THEME_PALETTE = {"98": "Windows 98 blue", "xp": "Windows 98 blue", "dark": "Windows 98 blue"}  # unless one's chosen
+
+
+def palette_colors(name, custom_color=None):
+    """A palette's title bar colours (left, right); Custom... is made from its one colour."""
+    if name == CUSTOM_PALETTE and custom_color:
+        return custom_palette(custom_color)
+    return TITLE_PALETTES.get(name) or TITLE_PALETTES["Windows 98 blue"]
+
+
+def custom_palette(color):
+    """A title bar from one chosen colour: it on the left, fading to a lighter shade of it on
+    the right, like the ready-made palettes."""
+    rgb = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
+    light = [round(v + (255 - v) * 0.35) for v in rgb]
+    return color.upper(), "#" + "".join(f"{v:02X}" for v in light)
 CAPTION_INACTIVE = ("#808080", "#A8A8A8")
 
 
@@ -697,6 +781,8 @@ class ClassicWindow:
         self.maximized, self.normal_geo, self.active = False, None, True
         self.pressed, self.down = None, False  # title-bar button held down, and shown down?
         self.on_update = None  # set_update_button: shows the green "update" button when set
+        self.on_help = None  # set by WhatsThis: shows the ? button (dialogs) when set
+        self.icon = None  # set_icon: a small picture before the title
         self._move, self._resize, self._grad = None, None, None
         win.title(title)  # still shown on the taskbar and in Alt+Tab
         if sys.platform != "win32":
@@ -828,6 +914,12 @@ class ClassicWindow:
             self.active = active
             self.draw()
 
+    def set_icon(self, path, size=16):
+        """Show the picture at path, size x size, at the left of the title bar."""
+        self.icon = ImageTk.PhotoImage(Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS))
+        if hasattr(self, "bar"):
+            self.draw()
+
     def set_update_button(self, on_click):
         """Show a green download-arrow button left of _ that calls on_click (None hides it)."""
         self.on_update = on_click
@@ -836,12 +928,13 @@ class ClassicWindow:
 
     # ---- drawing ----
     def buttons(self):
-        """[(kind, x0, y0)] from the right: X, [] and _ side by side with no gaps; X keeps
-        the same distance from the bar's right edge as from its top (3 px). The update button,
-        when shown, sits a little apart to the left of them."""
+        """[(kind, x0, y0)] from the right: X, [] and _ side by side with no gaps; X 3 px
+        from the bar's right edge, all centred up and down. The update button, when shown,
+        sits a little apart to the left of them, and the ? button (What's This?) left of
+        everything - so the two never overlap."""
         W = self.bar.winfo_width()
-        margin = (self.TITLE_H - self.BTN_H) // 2  # 3 px from the bar's right edge
-        y = margin + 1  # 1 px lower than exactly centred: 4 px above, 3 below
+        margin = 3  # from the bar's right edge
+        y = (self.TITLE_H - self.BTN_H + 1) // 2  # centred; an odd spare pixel goes above
         x = W - margin - self.BTN_W
         out = [("close", x, y)]
         if self.resizable:
@@ -849,8 +942,12 @@ class ClassicWindow:
             out.append(("restore" if self.maximized else "max", x, y))
             x -= self.BTN_W
             out.append(("min", x, y))
-        if self.on_update:
-            out.append(("update", x - 8 - self.BTN_W, y))  # 8 px gap before _
+        if self.on_update:  # its own spot, 8 px apart, just left of _
+            x -= self.BTN_W + 8
+            out.append(("update", x, y))
+        if self.on_help:  # "What's This?": 2 px left of what's there (X on dialogs; _ or the
+            x -= self.BTN_W + 2  # update button on the main window), like Windows 98
+            out.append(("help", x, y))
         return out
 
     def draw(self):
@@ -865,7 +962,11 @@ class ClassicWindow:
                           for i in range(256)])
             self._grad = (key, ImageTk.PhotoImage(ramp.resize((max(W, 1), H))))
         c.create_image(0, 0, image=self._grad[1], anchor="nw")
-        c.create_text(6, H // 2, text=self.title, anchor="w", font=("Tahoma", 10, "bold"),
+        x = 6
+        if self.icon:
+            c.create_image(x, H // 2, image=self.icon, anchor="w")
+            x += self.icon.width() + 5
+        c.create_text(x, H // 2, text=self.title, anchor="w", font=(FONT[0], 10, "bold"),
                       fill="#FFFFFF" if self.active else "#D4D0C8")
         for kind, x, y in self.buttons():
             self.draw_button(kind, x, y, self.pressed == kind and self.down)
@@ -904,13 +1005,20 @@ class ClassicWindow:
             px(4, 9, 5, 14)
             px(12, 9, 13, 14)
             px(4, 13, 13, 14)
+        elif kind == "help":  # a bold ?, x 6-13, y 3-14
+            px(7, 3, 13, 5)  # top of the hook
+            px(6, 4, 8, 7)  # its left end
+            px(12, 4, 14, 8)  # right side
+            px(10, 7, 13, 9)  # curling back in
+            px(9, 8, 11, 11)  # stem
+            px(9, 12, 11, 14)  # the dot
         elif kind == "update":  # arrow down onto a line, x 5-14, y 2-13, 2-px strokes like X
             px(9, 2, 11, 9)  # shaft, ending inside the head so the tip stays sharp
             for i in range(5):  # head: drawn with the X's strokes
                 px(5 + i, 6 + i, 7 + i, 7 + i)
                 px(13 - i, 6 + i, 15 - i, 7 + i)
             px(6, 12, 14, 14)  # the line: the same as _
-        else:  # close: a 2-px-thick X, x 5-14, y 5-13
+        else:  # close: Windows 98's X - 2-px arms, a little wider than tall; x 5-14, y 5-13
             for i in range(9):
                 px(5 + i, 5 + i, 7 + i, 6 + i)
                 px(13 - i, 5 + i, 15 - i, 6 + i)
@@ -944,7 +1052,8 @@ class ClassicWindow:
             self.draw()
             if self.button_at(e.x, e.y) == kind:  # released on the same button: do it
                 {"close": self.on_close, "min": self.minimize, "max": self.toggle_maximize,
-                 "restore": self.toggle_maximize, "update": self.on_update}[kind]()
+                 "restore": self.toggle_maximize, "update": self.on_update,
+                 "help": self.on_help}[kind]()
 
     def bar_double(self, e):
         if not self.button_at(e.x, e.y):
@@ -1081,7 +1190,7 @@ class ClassicProgress(tk.Canvas):
 def xp_button(parent, text, cmd, bold=False):
     """The app's raised button (Add, Convert, OK...)."""
     return tk.Button(parent, text=text, command=cmd, bg=BG, relief="raised", bd=3,
-                     font=("Tahoma", 9, "bold" if bold else "normal"),
+                     font=(FONT[0], FONT[1], "bold" if bold else "normal"),
                      activebackground="#F5F3E8", padx=8)
 
 
@@ -1122,12 +1231,13 @@ def make_sound(kind, rate=44100):
 
 
 _SOUNDS = {}
+SOUNDS_ON = True  # Settings > Sound effects (read from the settings file at start)
 
 
 def play_sound(kind):
     """Play "done" or "error" without waiting for it (Windows only; silently skipped if the
     sound can't play, e.g. no speakers)."""
-    if sys.platform != "win32" or kind is None:
+    if sys.platform != "win32" or kind is None or not SOUNDS_ON:
         return
 
     def go():
@@ -1185,46 +1295,78 @@ def dialog(title, message, buttons=("OK",), parent=None, sound=None):
     return result[0]
 
 
+def brush_icon():
+    """A little Windows 98-style paintbrush (11 x 16), shaded to look 3D like the icons of
+    the time - lit from the top left: the yellow-green handle bright on its left and dark
+    olive on its right, the metal band light on top and shadowed below, the white bristles
+    grey on their shaded side; black outline."""
+    rows = ["....KKK....",
+            "...KHYGK...",
+            "...KHYGK...",
+            "...KHYGK...",
+            "...KHYGK...",
+            "...KHYGK...",
+            "..KKHYGKK..",
+            ".KHHYYYGGK.",
+            ".KKKKKKKKK.",
+            ".KWSSSSSDK.",
+            ".KDDDDDDDK.",
+            ".KKKKKKKKK.",
+            ".KWKWKWKLK.",
+            ".KWKWKWKLK.",
+            ".KWWWWWWLK.",
+            ".KKKKKKKKK."]
+    colors = {"K": (0, 0, 0, 255), "H": (255, 255, 96, 255), "Y": (192, 200, 0, 255),
+              "G": (104, 104, 0, 255), "W": (255, 255, 255, 255), "S": (208, 208, 208, 255),
+              "D": (128, 128, 128, 255), "L": (176, 176, 176, 255)}
+    im = Image.new("RGBA", (11, len(rows)), (0, 0, 0, 0))
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch in colors:
+                im.putpixel((x, y), colors[ch])
+    return ImageTk.PhotoImage(im)
+
+
 class PopupMenu:
-    """Right-click menu drawn by the app itself, laid out like Windows' own (1 px grey outline,
-    2 px inner frame, 21 px items, a line between groups, blue highlight). Windows' menus
+    """Right-click menu drawn by the app itself, laid out like Windows' own (raised 3D edge
+    like the buttons', 21 px items, a line between groups, blue highlight). Windows' menus
     draw their frame in the system's light colour, which in dark mode showed as a thick
     white border; this one is coloured like everything else, so it's the same in both modes.
     Same calls as tk.Menu: add_command(label=, command=), add_separator(), tk_popup(x, y)."""
 
-    def __init__(self, parent):
+    def __init__(self, parent, on_close=None, indent=22, refill=None):
         self.parent = parent.winfo_toplevel()
+        self.indent = indent  # space left and right of the items' text
         self.items = []
         self.top = None
+        self.on_close = on_close  # called when the menu closes (the menu bar un-highlights)
+        # refill: a list that stays open when an item is chosen (the Theme list) - the item
+        # acts, then the list redraws itself from refill() (which item is pressed in...);
+        # it closes when anything else is clicked
+        self.refill = refill
 
-    def add_command(self, label, command):
-        self.items.append((label, command))
+    def add_command(self, label, command, checked=False, button=None):
+        """checked: shown pressed in - e.g. the theme in use. button: (picture, command) for
+        a small button at the item's right end (only on a checked item)."""
+        self.items.append((label, command, checked, button))
 
     def add_separator(self):
         self.items.append(None)
 
-    def tk_popup(self, x, y):
-        top = self.top = tk.Toplevel(self.parent, bg="#A0A0A0")  # the 1 px outline
+    def tk_popup(self, x, y, min_width=0):
+        top = self.top = tk.Toplevel(self.parent, bg=BG)
         top.keeps_owner_active = True  # its window stays "active" (blue title) while it's open
         top.withdraw()
         top.overrideredirect(True)
         top.transient(self.parent)
-        inner = tk.Frame(top, bg="#F0F0F0")  # the 2 px inner frame
-        inner.pack(padx=1, pady=1)
-        body = tk.Frame(inner, bg=BG)
-        body.pack(padx=2, pady=2)
-        for item in self.items:
-            if item is None:  # etched line: grey over white
-                tk.Frame(body, bg="#A0A0A0", height=1).pack(fill="x", padx=1, pady=(3, 0))
-                tk.Frame(body, bg="#FFFFFF", height=1).pack(fill="x", padx=1, pady=(0, 3))
-                continue
-            label, command = item
-            row = tk.Label(body, text=label, bg=BG, fg="black", font=FONT, anchor="w",
-                           padx=22, pady=3)
-            row.pack(fill="x")
-            row.bind("<Enter>", lambda e, r=row: r.config(bg="#316AC5", fg="white"))
-            row.bind("<Leave>", lambda e, r=row: r.config(bg=BG, fg="black"))
-            row.bind("<ButtonRelease-1>", lambda e, c=command: self.choose(c))
+        # raised 3D edge drawn exactly like the buttons' (xp_button: relief raised, bd 3), so
+        # the light and shadow sides are just as thick
+        edge = tk.Frame(top, bg=BG, relief="raised", bd=3)
+        edge.pack()
+        self.body = tk.Frame(edge, bg=BG)
+        self.body.pack(padx=1, pady=1)
+        self.min_width = min_width
+        self.fill()
         top.update_idletasks()
         w, h = top.winfo_reqwidth(), top.winfo_reqheight()
         x = min(x, top.winfo_screenwidth() - w - 2)  # keep it on the screen
@@ -1270,7 +1412,21 @@ class PopupMenu:
         if self.top and (f is None or f.winfo_toplevel() is not self.top):
             self.close(give_back=False)  # the other program keeps the focus
 
-    def choose(self, command):
+    def choose(self, command, close=False):
+        """An item was clicked. A list that stays open (refill) acts and redraws itself;
+        any other menu - or close=True - closes first."""
+        if self.refill and not close:
+            command()
+            if self.top:  # (still open: redraw it, e.g. with the new theme pressed in)
+                self.items = []
+                for item in self.refill():
+                    if item is None:
+                        self.add_separator()
+                    else:
+                        self.add_command(*item)
+                self.fill()
+                self.top.focus_force()  # keeps the keyboard (Esc) and the outside-click watch
+            return
         self.close()
         command()
 
@@ -1281,6 +1437,8 @@ class PopupMenu:
             top, self.top = self.top, None
             top.grab_release()
             top.destroy()
+            if self.on_close:
+                self.on_close()
             try:
                 if give_back:
                     self.parent.focus_force()
@@ -1291,6 +1449,520 @@ class PopupMenu:
 
     def grab_release(self):  # (tk.Menu has it; nothing to do here)
         pass
+
+    def fill(self):
+        """Make the items' rows (again, after a choice in a list that stays open)."""
+        body = self.body
+        for w in body.winfo_children():
+            w.destroy()
+        for item in self.items:
+            if item is None:  # etched line: grey over white
+                tk.Frame(body, bg="#A0A0A0", height=1).pack(fill="x", padx=1, pady=(3, 0))
+                tk.Frame(body, bg="#FFFFFF", height=1).pack(fill="x", padx=1, pady=(0, 3))
+                continue
+            label, command, checked, button = item
+            if checked:
+                self.latched_row(body, label, command, button)
+                continue
+            row = tk.Label(body, text=label, bg=BG, fg="black", font=FONT, anchor="w",
+                           padx=self.indent, pady=3)
+            row.pack(fill="x")
+            if command is None:  # not available: greyed out, like Windows' disabled items
+                row.config(fg="#808080")
+                continue
+            row.bind("<Enter>", lambda e, r=row: r.config(bg="#316AC5", fg="white"))
+            row.bind("<Leave>", lambda e, r=row: r.config(bg=BG, fg="black"))
+            row.bind("<ButtonRelease-1>", lambda e, c=command: self.choose(c))
+        tk.Frame(body, bg=BG, width=self.min_width, height=0).pack()
+
+    def latched_row(self, body, label, command, button=None):
+        """An item shown pressed in, exactly like a pressed menu bar button (Home): the same
+        sunken edge on the plain face, the same size as the other items, its text in place.
+        button: (picture, command) - a small clickable picture at its right end."""
+        row = tk.Label(body, text=label, bg=BG, fg="black", font=FONT, anchor="w",
+                       padx=self.indent, pady=3, relief="sunken", bd=2)
+        row.pack(fill="x")
+        if command is not None:
+            row.bind("<ButtonRelease-1>", lambda e: self.choose(command))
+        if button:
+            picture, action = button
+            icon = tk.Label(body, image=picture, bg=BG, bd=0, padx=0, pady=0)
+            icon.place(in_=row, relx=1.0, rely=0.5, x=-5, anchor="e")
+
+            def over(e):
+                return 0 <= e.x < icon.winfo_width() and 0 <= e.y < icon.winfo_height()
+
+            def show(pressed):  # pressed: the picture sinks 1 px down and right, like a button
+                icon.place_configure(x=-4 if pressed else -5, y=1 if pressed else 0)
+
+            def up(e):  # released on it: act (going somewhere else: the list closes)
+                show(False)
+                if over(e):
+                    self.choose(action, close=True)
+            icon.bind("<ButtonPress-1>", lambda e: show(True))
+            # like every button: held down, it pops up while the mouse is off it and sinks
+            # again when the mouse comes back
+            icon.bind("<B1-Motion>", lambda e: show(over(e)))
+            icon.bind("<ButtonRelease-1>", up)
+
+
+class MenuBar(tk.Frame):
+    """Classic menu bar under the title bar (File  Edit  View ... style): each title has its
+    first letter underlined and works with a click or Alt + that letter. The titles are
+    flat buttons that press in when clicked, like every other button in the app (the way
+    Windows 98's menu bars did). menus: a list of (title, "menu", items) - items is a
+    function returning the drop-down list's items, [(label, command or None = greyed out)
+    or None = line]; the title stays pressed in while its list is open - or
+    (title, "page", command): acts when released (switches page)."""
+
+    def __init__(self, parent, menus):
+        super().__init__(parent, bg=BG)
+        self.labels = {}
+        bold = tkfont.Font(family=FONT[0], size=FONT[1], weight="bold")
+        for title, kind, action in menus:
+            # each title sits in a box as wide as its bold version, so making the current
+            # page's title bold (set_current) doesn't push the others along
+            cell = tk.Frame(self, bg=BG)
+            cell.pack(side="left")
+            btn = tk.Button(cell, text=title, bg=BG, fg="black", font=FONT, underline=0,
+                            relief="flat", bd=2, padx=4, pady=0, highlightthickness=0,
+                            activebackground=BG, takefocus=0)
+            cell.config(width=bold.measure(title) + 16, height=btn.winfo_reqheight())
+            cell.pack_propagate(False)
+            btn.pack(fill="both", expand=True)
+            self.labels[title] = btn
+            if kind == "page":  # a real button: presses in, acts when released on it
+                btn.config(command=action)
+                key = lambda e=None, b=btn: self.flash(b)  # noqa: E731
+            else:  # presses in and opens its list straight away
+                btn.bind("<ButtonPress-1>", lambda e, b=btn, it=action: self.open(b, it))
+                key = lambda e=None, b=btn, it=action: self.open(b, it)  # noqa: E731
+            self.winfo_toplevel().bind(f"<Alt-{title[0].lower()}>", key)
+
+    def set_current(self, title):
+        """Show which page is open: its title in bold."""
+        for name, btn in self.labels.items():
+            btn.config(font=(FONT[0], FONT[1], "bold") if name == title else FONT)
+
+    def flash(self, btn):  # Alt + letter on a page title: a short press, then act
+        btn.config(relief="sunken")
+        btn.after(120, lambda: (btn.config(relief="flat"), btn.invoke()))
+        return "break"
+
+    def open(self, btn, items):
+        # pressed in while its list is open - the same look as a pressed Home button
+        btn.config(relief="sunken")
+        # the list stays open while you try its choices (e.g. themes): it closes when you
+        # click anywhere else, or press Esc
+        menu = PopupMenu(self, indent=8, on_close=lambda: btn.config(relief="flat"),
+                         refill=items)
+        entries = items()
+        for item in entries:
+            if item is None:
+                menu.add_separator()
+            else:
+                menu.add_command(*item)
+        # the text starts 8 px in (left-aligned), but the list keeps the usual width: the
+        # longest item with 22 px on both sides (+ each item's 2 px border), like the
+        # right-click menus
+        font = tkfont.Font(font=FONT)
+        widest = max((font.measure(e[0]) for e in entries if e), default=0)
+        menu.tk_popup(btn.winfo_rootx(), btn.winfo_rooty() + btn.winfo_height(),
+                      min_width=widest + 44 + 4)
+        return "break"
+
+
+SHOW_HELP = True  # Settings > Help: the ? (What's This?) buttons, on or off
+
+
+class WhatsThis:
+    """Windows 95 / 98's "What's This?" help for a dialog: a ? button next to X; clicking it
+    turns the pointer into an arrow with a question mark, and the next click on any part of
+    the dialog shows a short note about it (lookup(widget, x_root, y_root) -> text or None).
+    The note closes with the next click or key."""
+
+    def __init__(self, win, chrome, lookup):
+        self.win, self.chrome, self.lookup = win, chrome, lookup
+        self.tag = f"WhatsThis{id(self)}"  # put in front of every widget's own events
+        self.active, self.note, self.saved = False, None, {}
+        chrome.on_help = self.start if SHOW_HELP else None  # (turned off in Settings: no ?)
+        win.bind_class(self.tag, "<ButtonPress-1>", self.pick)
+        win.bind_class(self.tag, "<ButtonPress-3>", lambda e: self.stop() or "break")
+        win.bind_class(self.tag, "<Escape>", lambda e: self.stop() or "break")  # (not the dialog)
+        # a note closes with the next click anywhere in the dialog, or any key
+        for event in ("<ButtonPress>", "<KeyPress>"):
+            win.bind(event, lambda e: self.close_note(), add="+")
+        chrome.draw()
+
+    def start(self):
+        if self.active:  # ? again: leave help mode
+            self.stop()
+            return
+        self.close_note()
+        self.active = True
+        for w in all_widgets(self.win):
+            try:
+                self.saved[w] = (w.cget("cursor"), w.bindtags())
+                w.config(cursor="question_arrow")
+                w.bindtags((self.tag,) + w.bindtags())
+            except tk.TclError:
+                pass
+
+    def stop(self):
+        self.active = False
+        for w, (cursor, tags) in self.saved.items():
+            try:
+                w.config(cursor=cursor)
+                w.bindtags(tags)
+            except tk.TclError:
+                pass
+        self.saved = {}
+
+    def pick(self, e):
+        if e.widget is self.chrome.bar:  # the title bar (? again, X...): out of help mode
+            self.stop()
+            return None  # ... and the click still reaches its button
+        text = self.lookup(e.widget, e.x_root, e.y_root)
+        self.stop()
+        if text:
+            self.show(text, e.x_root, e.y_root)
+        return "break"
+
+    def show(self, text, x, y):
+        note = self.note = tk.Toplevel(self.win)
+        note.overrideredirect(True)
+        note.attributes("-topmost", True)
+        tk.Label(note, text=text, bg="#FFFFE1", fg="black", relief="solid", bd=1, font=FONT,
+                 justify="left", wraplength=230, padx=6, pady=4).pack()
+        note.update_idletasks()
+        x = min(x + 4, note.winfo_screenwidth() - note.winfo_reqwidth() - 4)
+        note.geometry(f"+{x}+{y + 16}")
+        note.bind("<ButtonPress>", lambda e: self.close_note())
+
+    def close_note(self):
+        if self.note:
+            self.note.destroy()
+            self.note = None
+
+
+BASIC_COLORS = [  # the 48 "Basic colors" of Windows' classic colour picker
+    "#FF8080", "#FFFF80", "#80FF80", "#00FF80", "#80FFFF", "#0080FF", "#FF80C0", "#FF80FF",
+    "#FF0000", "#FFFF00", "#80FF00", "#00FF40", "#00FFFF", "#0080C0", "#8080C0", "#FF00FF",
+    "#804040", "#FF8040", "#00FF00", "#008080", "#004080", "#8080FF", "#800040", "#FF0080",
+    "#800000", "#FF8000", "#008000", "#008040", "#0000FF", "#0000A0", "#800080", "#8000FF",
+    "#400000", "#804000", "#004000", "#004040", "#000080", "#000040", "#400040", "#400080",
+    "#000000", "#808000", "#808040", "#808080", "#408080", "#C0C0C0", "#400040", "#FFFFFF",
+]
+
+
+def color_dialog(parent, title, initial="#000085", beside=False):
+    """(beside: open off to the right of the main window, partly outside it, instead of
+    centred over it.)
+    Colour picker laid out exactly like Windows 95 / 98's "Edit Colors" box (positions
+    measured from it), in the app's own style: basic and custom colours on the left, the
+    rainbow field, brightness bar, preview and Hue / Sat / Lum / Red / Green / Blue boxes on
+    the right. Returns "#RRGGBB", or None if cancelled. The colours are drawn as pictures,
+    so dark mode leaves them as they are; custom colours are remembered."""
+    owner = parent.winfo_toplevel()
+    win = tk.Toplevel(owner)
+    win.configure(bg=BG)
+    win.resizable(False, False)
+    win.transient(owner)
+    result = {"color": None}
+    chrome = ClassicWindow(win, title, win.destroy, resizable=False, taskbar=False)
+    body = chrome.body
+    box = tk.Frame(body, bg=BG, width=445, height=297)
+    box.pack()
+    box.pack_propagate(False)
+    FX, FY, FW, FH = 228, 7, 175, 187  # rainbow field (inside its edge)
+    BX, BW = 420, 10  # brightness bar
+    keep = []  # Tk forgets pictures nothing holds on to
+    SMALL = FONT  # (MS Sans Serif 8: the original's own font)
+
+    def solid(color, w, h):
+        img = ImageTk.PhotoImage(Image.new("RGB", (w, h), color))
+        keep.append(img)
+        return img
+
+    def edge1(c, x0, y0, x1, y1):  # 1 px sunken edge round the area [x0, x1] x [y0, y1]
+        c.create_line(x0 - 1, y1 + 1, x0 - 1, y0 - 1, x1 + 2, y0 - 1, fill=EDGE_SHADOW)
+        c.create_line(x0 - 1, y1 + 1, x1 + 1, y1 + 1, x1 + 1, y0 - 2, fill=EDGE_LIGHT)
+
+    def edge2(c, x0, y0, x1, y1):  # 2 px sunken edge (the swatches'): grey + black, face + white
+        c.create_line(x0 - 2, y1 + 2, x0 - 2, y0 - 2, x1 + 3, y0 - 2, fill=EDGE_SHADOW)
+        c.create_line(x0 - 1, y1 + 1, x0 - 1, y0 - 1, x1 + 2, y0 - 1, fill=EDGE_DARK)
+        c.create_line(x0 - 1, y1 + 1, x1 + 1, y1 + 1, x1 + 1, y0 - 2, fill=BG)
+        c.create_line(x0 - 2, y1 + 2, x1 + 2, y1 + 2, x1 + 2, y0 - 3, fill=EDGE_LIGHT)
+
+    def hls(col):
+        return colorsys.rgb_to_hls(*[int(col[i:i + 2], 16) / 255 for i in (1, 3, 5)])
+
+    h, l, s_ = hls(initial)
+    state = {"h": h, "l": l, "s": s_, "pick": None}  # pick: ("basic" / "custom", index)
+    saved = load_settings().get("custom_colors") or []
+    customs = (list(saved) + [None] * 16)[:16]
+    state["slot"] = next((i for i, c in enumerate(customs) if c is None), 0)
+
+    # one canvas under everything: swatches, rainbow, bar and preview are drawn on it
+    cv = tk.Canvas(box, width=445, height=297, bg=BG, highlightthickness=0)
+    cv.place(x=0, y=0)
+
+    def label(text, x, y, under=-1, anchor="nw"):
+        tk.Label(box, text=text, bg=BG, font=SMALL, underline=under, padx=0,
+                 pady=0).place(x=x, y=y, anchor=anchor)
+
+    # ---- basic and custom colours: 20 x 16 sunken boxes, 25 across and 22 down
+    label("Basic colors:", 4, 8, 0)
+    label("Custom colors:", 4, 174, 0)
+    cells = []  # (kind, index, x, y) of each swatch's colour area (16 x 12)
+    for i, col in enumerate(BASIC_COLORS):
+        x, y = 10 + (i % 8) * 25, 27 + (i // 8) * 22
+        cells.append(("basic", i, x, y))
+    for i in range(16):
+        x, y = 10 + (i % 8) * 25, 193 + (i // 8) * 22
+        cells.append(("custom", i, x, y))
+    swatch_items = {}
+
+    def draw_swatch(kind, i, x, y):
+        col = BASIC_COLORS[i] if kind == "basic" else (customs[i] or "#FFFFFF")
+        if (kind, i) in swatch_items:
+            cv.delete(swatch_items[(kind, i)])
+        swatch_items[(kind, i)] = cv.create_image(x, y, image=solid(col, 16, 12), anchor="nw")
+    for kind, i, x, y in cells:
+        draw_swatch(kind, i, x, y)
+        edge2(cv, x, y, x + 15, y + 11)
+    mark = [cv.create_rectangle(0, 0, 0, 0, outline="#000000", width=1),
+            cv.create_rectangle(0, 0, 0, 0, outline="#000000", width=1, dash=(1, 1))]
+
+    # ---- the rainbow field (hue across, saturation down) and the brightness bar
+    rainbow = Image.new("RGB", (FW, FH))
+    rainbow.putdata([tuple(round(v * 255) for v in colorsys.hls_to_rgb(
+        x / (FW - 1), 0.5, 1 - y / (FH - 1))) for y in range(FH) for x in range(FW)])
+    img = ImageTk.PhotoImage(rainbow)
+    keep.append(img)
+    cv.create_image(FX, FY, image=img, anchor="nw")
+    edge1(cv, FX, FY, FX + FW - 1, FY + FH - 1)
+    edge1(cv, BX, FY, BX + BW - 1, FY + FH - 1)
+    bar_item = cv.create_image(BX, FY, anchor="nw")
+    arrow = cv.create_polygon(0, 0, 0, 0, 0, 0, fill="#000000")
+    cross = [cv.create_line(0, 0, 0, 0, fill="#000000", width=2) for _ in range(4)]
+
+    # ---- preview, and the numbers
+    PX, PY, PW, PH = 228, 202, 58, 41
+    preview_item = cv.create_image(PX, PY, anchor="nw")
+    edge1(cv, PX, PY, PX + PW - 1, PY + PH - 1)
+    label("Color|Solid", PX + PW // 2, 246, 0, anchor="n")
+    boxes = {}
+    for r, (name, text, under) in enumerate((("hue", "Hue:", 1), ("sat", "Sat:", 0),
+                                              ("lum", "Lum:", 0))):
+        label(text, 318, 203 + r * 24, under, anchor="ne")
+        boxes[name] = tk.Entry(box, font=SMALL, relief="sunken", bd=2, bg="white", width=3)
+        boxes[name].place(x=321, y=201 + r * 24, width=28, height=20)
+    for r, (name, text, under) in enumerate((("red", "Red:", 0), ("green", "Green:", 0),
+                                              ("blue", "Blue:", 2))):
+        label(text, 398, 203 + r * 24, under, anchor="ne")
+        boxes[name] = tk.Entry(box, font=SMALL, relief="sunken", bd=2, bg="white", width=3)
+        boxes[name].place(x=401, y=201 + r * 24, width=28, height=20)
+
+    def current():
+        rgb = colorsys.hls_to_rgb(state["h"], state["l"], state["s"])
+        return "#" + "".join(f"{round(v * 255):02X}" for v in rgb)
+
+    def refresh():
+        col = current()
+        cx, cy = FX + state["h"] * (FW - 1), FY + (1 - state["s"]) * (FH - 1)
+        for item, (x0, y0, x1, y1) in zip(cross, ((-8, 0, -3, 0), (3, 0, 8, 0),
+                                                 (0, -8, 0, -3), (0, 3, 0, 8))):
+            cv.coords(item, cx + x0, cy + y0, cx + x1, cy + y1)
+        strip = Image.new("RGB", (1, FH))
+        strip.putdata([tuple(round(v * 255) for v in colorsys.hls_to_rgb(
+            state["h"], 1 - y / (FH - 1), state["s"])) for y in range(FH)])
+        bar_img = ImageTk.PhotoImage(strip.resize((BW, FH)))
+        keep.append(bar_img)
+        cv.itemconfig(bar_item, image=bar_img)
+        ay = FY + (1 - state["l"]) * (FH - 1)
+        cv.coords(arrow, BX + BW + 3, ay, BX + BW + 9, ay - 6, BX + BW + 9, ay + 6)
+        cv.itemconfig(preview_item, image=solid(col, PW, PH))
+        values = {"hue": round(state["h"] * 240) % 240, "sat": round(state["s"] * 240),
+                  "lum": round(state["l"] * 240)}
+        values.update(zip(("red", "green", "blue"), (int(col[i:i + 2], 16) for i in (1, 3, 5))))
+        for name, val in values.items():
+            boxes[name].delete(0, "end")
+            boxes[name].insert(0, str(val))
+        # the chosen swatch: a black frame and a dotted one round it, like Windows'
+        pick = state["pick"]
+        spot = next(((x, y) for k, i, x, y in cells if (k, i) == pick), None)
+        if spot:
+            x, y = spot
+            cv.coords(mark[0], x - 3, y - 3, x + 18, y + 14)
+            cv.coords(mark[1], x - 5, y - 5, x + 20, y + 16)
+        else:
+            for m in mark:
+                cv.coords(m, 0, 0, 0, 0)
+
+    def set_rgb(col, pick=None):
+        state["h"], state["l"], state["s"] = hls(col)
+        state["pick"] = pick
+        refresh()
+
+    def click(e):
+        for kind, i, x, y in cells:
+            if x - 2 <= e.x <= x + 17 and y - 2 <= e.y <= y + 13:
+                if kind == "custom":
+                    state["slot"] = i
+                    if customs[i] is None:  # an empty slot: just choose it for "Add"
+                        state["pick"] = ("custom", i)
+                        refresh()
+                        return
+                    set_rgb(customs[i], ("custom", i))
+                else:
+                    set_rgb(BASIC_COLORS[i], ("basic", i))
+                return
+        if FX <= e.x < FX + FW and FY <= e.y < FY + FH:
+            drag_field(e)
+        elif BX <= e.x < BX + BW + 12 and FY - 3 <= e.y < FY + FH + 3:
+            drag_bar(e)
+
+    def drag_field(e):
+        state["h"] = min(max((e.x - FX) / (FW - 1), 0), 1)
+        state["s"] = min(max(1 - (e.y - FY) / (FH - 1), 0), 1)
+        if state["l"] in (0.0, 1.0):  # black / white has no colour to show: middle brightness
+            state["l"] = 0.5
+        state["pick"] = None
+        refresh()
+
+    def drag_bar(e):
+        state["l"] = min(max(1 - (e.y - FY) / (FH - 1), 0), 1)
+        state["pick"] = None
+        refresh()
+
+    def motion(e):
+        if state.get("drag") == "field":
+            drag_field(e)
+        elif state.get("drag") == "bar":
+            drag_bar(e)
+
+    def press(e):
+        in_field = FX <= e.x < FX + FW and FY <= e.y < FY + FH
+        in_bar = BX <= e.x < BX + BW + 12 and FY - 3 <= e.y < FY + FH + 3
+        state["drag"] = "field" if in_field else "bar" if in_bar else None
+        click(e)
+    cv.bind("<ButtonPress-1>", press)
+    cv.bind("<B1-Motion>", motion)
+
+    def typed(e=None):  # Enter / leaving a box: take what was typed, if it makes sense
+        try:
+            if e is not None and e.widget in (boxes["hue"], boxes["sat"], boxes["lum"]):
+                state["h"] = min(max(int(boxes["hue"].get()), 0), 239) / 240
+                state["s"] = min(max(int(boxes["sat"].get()), 0), 240) / 240
+                state["l"] = min(max(int(boxes["lum"].get()), 0), 240) / 240
+                state["pick"] = None
+                refresh()
+                return
+            rgb = [min(max(int(boxes[n].get()), 0), 255) for n in ("red", "green", "blue")]
+            set_rgb("#" + "".join(f"{v:02X}" for v in rgb))
+        except ValueError:
+            refresh()  # nonsense typed: show the colour as it was
+    for entry in boxes.values():
+        entry.bind("<Return>", typed)
+        entry.bind("<FocusOut>", typed)
+
+    def add_custom():
+        i = state["slot"]
+        customs[i] = current()
+        save_settings(custom_colors=customs)
+        x, y = next((x, y) for k, j, x, y in cells if (k, j) == ("custom", i))
+        draw_swatch("custom", i, x, y)
+        cv.tag_raise(mark[0]), cv.tag_raise(mark[1])
+        state["pick"] = ("custom", i)
+        state["slot"] = (i + 1) % 16
+        refresh()
+
+    def ok(_=None):
+        result["color"] = current()
+        win.destroy()
+
+    def button(text, cmd, x, y, w, under=-1, state_="normal"):
+        b = xp_button(box, text, cmd)
+        b.config(underline=under, state=state_, padx=0, pady=0, font=SMALL)
+        b.place(x=x, y=y, width=w, height=23)
+        return b
+    button("Define Custom Colors >>", None, 5, 243, 211, 0, "disabled")
+    button("OK", ok, 5, 269, 66)
+    button("Cancel", win.destroy, 77, 269, 66)
+    button("Add to Custom Colors", add_custom, 227, 268, 215, 0)
+    win.bind("<Return>", ok)
+    win.bind("<Escape>", lambda e: win.destroy())
+
+    # ---- "What's This?" (the ? button): a note for each part of the box
+    notes = {
+        "basic": "Click a colour to choose it.",
+        "custom": "Colours you've saved. Click one to choose it. To save the chosen colour, "
+                  "click an empty box, then click Add to Custom Colors.",
+        "field": "Click or drag in the colours to choose one: the shade changes from left to "
+                 "right, and the colour gets greyer towards the bottom.",
+        "bar": "Click or drag to make the colour lighter (up) or darker (down).",
+        "preview": "Shows the colour you've chosen.",
+        "hue": "The colour's shade, from 0 (red) round through the rainbow to 239. "
+               "Type a number and press Enter.",
+        "sat": "How strong the colour is, from 0 (grey) to 240 (full colour). "
+               "Type a number and press Enter.",
+        "lum": "How light the colour is, from 0 (black) to 240 (white). "
+               "Type a number and press Enter.",
+        "red": "How much red is in the colour, from 0 to 255. Type a number and press Enter.",
+        "green": "How much green is in the colour, from 0 to 255. Type a number and press Enter.",
+        "blue": "How much blue is in the colour, from 0 to 255. Type a number and press Enter.",
+        "Define Custom Colors >>": "Shows the custom colour controls - they're already shown here.",
+        "OK": "Uses the chosen colour for the title bar and closes this box.",
+        "Cancel": "Closes this box without changing anything.",
+        "Add to Custom Colors": "Saves the chosen colour in the selected Custom colors box, "
+                                "so you can pick it again later.",
+    }
+    by_label = {"Basic colors:": "basic", "Custom colors:": "custom", "Color|Solid": "preview",
+                "Hue:": "hue", "Sat:": "sat", "Lum:": "lum", "Red:": "red", "Green:": "green",
+                "Blue:": "blue"}
+
+    def whats_this(widget, xr, yr):
+        for name, entry in boxes.items():
+            if widget is entry:
+                return notes[name]
+        if widget is cv:  # the drawn parts: which area was clicked?
+            x, y = xr - cv.winfo_rootx(), yr - cv.winfo_rooty()
+            for kind, i, sx, sy in cells:
+                if sx - 3 <= x <= sx + 18 and sy - 3 <= y <= sy + 14:
+                    return notes[kind]
+            if FX - 1 <= x <= FX + FW and FY - 1 <= y <= FY + FH:
+                return notes["field"]
+            if BX - 1 <= x <= BX + BW + 12 and FY - 4 <= y <= FY + FH + 4:
+                return notes["bar"]
+            if PX - 1 <= x <= PX + PW and PY - 1 <= y <= PY + PH:
+                return notes["preview"]
+            return None
+        try:
+            text = widget.cget("text")
+        except tk.TclError:
+            return None
+        return notes.get(by_label.get(text, text))
+    WhatsThis(win, chrome, whats_this)
+    state["pick"] = next((("basic", i) for i, c in enumerate(BASIC_COLORS)
+                          if c == initial.upper()), None)
+    refresh()
+
+    win.update_idletasks()
+    w, h = win.winfo_reqwidth(), win.winfo_reqheight()
+    if beside:  # its left edge two thirds across the main window, near the palette setting
+        x = owner.winfo_rootx() + owner.winfo_width() * 64 // 100
+        y = owner.winfo_rooty() + owner.winfo_height() * 29 // 100
+        x = min(x, win.winfo_screenwidth() - w - 4)  # ... but never off the screen
+        y = min(y, win.winfo_screenheight() - h - 40)
+    else:  # centred over the main window
+        x = owner.winfo_rootx() + (owner.winfo_width() - w) // 2
+        y = owner.winfo_rooty() + (owner.winfo_height() - h) // 3
+    win.geometry(f"+{max(0, x)}+{max(0, y)}")
+    win.focus_force()
+    win.grab_set()
+    win.wait_window()
+    return result["color"]
 
 
 def rename_dialog(parent, current, apply, is_busy=lambda: False):
@@ -1567,6 +2239,113 @@ def fmt_size(n):
         n /= 1024
 
 
+class TrackBar(tk.Canvas):
+    """Windows 95 / 98's slider ("trackbar"): a thin sunken groove, a raised thumb with a
+    point at the bottom, and tick marks under it - with the value shown above the thumb.
+    Works like tk.Scale where the app uses it: variable=, from_=, to=, length=, and
+    config(state="normal" / "disabled"). It only stops at multiples of step (0, 10, 20 ...
+    100), with a tick mark at each: drag the thumb (it jumps stop to stop), click the groove,
+    or use the arrow keys / Page Up / Down (one stop), Home / End.
+    Everything is drawn in the app's written colours, so the themes recolour it."""
+
+    def __init__(self, parent, variable, from_=0, to=100, length=200, step=10, **_):
+        self.var, self.lo, self.hi, self.res = variable, from_, to, step
+        self.enabled, self.drag = True, None
+        self.L = length
+        super().__init__(parent, width=length, height=40, bg=BG, highlightthickness=0,
+                         takefocus=1)
+        self.X0, self.X1 = 6, length - 7  # where the thumb's point can go
+        self.TY = 14  # the thumb's top (the value is written above it)
+        self.bind("<ButtonPress-1>", self.press)
+        self.bind("<B1-Motion>", self.motion)
+        self.bind("<ButtonRelease-1>", lambda e: setattr(self, "drag", None))
+        for key, n in (("<Left>", -1), ("<Right>", 1), ("<Down>", -1), ("<Up>", 1),
+                       ("<Prior>", 1), ("<Next>", -1)):
+            self.bind(key, lambda e, n=n: self.step(n * self.res))
+        self.bind("<Home>", lambda e: self.set(self.lo))
+        self.bind("<End>", lambda e: self.set(self.hi))
+        variable.trace_add("write", lambda *_: self.draw())
+        self.draw()
+
+    # tk.Scale's calls the app makes
+    def configure(self, cnf=None, **kw):
+        kw = {**(cnf or {}), **kw}
+        state = kw.pop("state", None)
+        kw.pop("fg", None)  # (the value's colour follows state)
+        if state is not None:
+            self.enabled = state != "disabled"
+            self.draw()
+        if kw:
+            super().configure(**kw)
+    config = configure
+
+    def get(self):
+        return self.var.get()
+
+    def set(self, value):
+        if self.enabled:  # to the nearest stop
+            new = min(max(round(value / self.res) * self.res, self.lo), self.hi)
+            if new != self.get():
+                self.var.set(new)
+
+    def step(self, n):
+        self.set(self.get() + n)
+        return "break"
+
+    def x_of(self, value):
+        return self.X0 + (value - self.lo) * (self.X1 - self.X0) / (self.hi - self.lo)
+
+    def value_at(self, x):
+        return self.lo + (x - self.X0) * (self.hi - self.lo) / (self.X1 - self.X0)
+
+    def press(self, e):
+        if not self.enabled:
+            return
+        self.focus_set()
+        cx = self.x_of(self.get())
+        if abs(e.x - cx) <= 6 and self.TY - 2 <= e.y <= self.TY + 22:  # on the thumb: drag it
+            self.drag = e.x - cx
+        else:  # on the groove: one stop towards the click, like Windows
+            self.step(self.res if e.x > cx else -self.res)
+
+    def motion(self, e):  # dragging: the thumb jumps from stop to stop
+        if self.drag is not None and self.enabled:
+            self.set(self.value_at(e.x - self.drag))
+
+    def draw(self):
+        self.delete("all")
+        ty = self.TY
+        cx = round(self.x_of(self.get()))
+        ink = "#000000" if self.enabled else "#999999"
+        # the value, above the thumb - kept fully inside at the ends (100 was cut in half)
+        text = str(self.get())
+        half = tkfont.Font(font=FONT).measure(text) / 2
+        tx = min(max(cx, half + 1), self.L - half - 1)
+        self.create_text(tx, 1, text=text, anchor="n", font=FONT, fill=ink)
+        # the groove: sunken, 4 px tall, through the thumb's middle
+        x0, x1, gy = self.X0 - 2, self.X1 + 2, ty + 6
+        self.create_line(x0, gy + 3, x0, gy, x1, gy, fill=EDGE_SHADOW)  # grey top / left
+        self.create_line(x0 + 1, gy + 2, x0 + 1, gy + 1, x1 - 1, gy + 1, fill=EDGE_DARK)
+        self.create_line(x0 + 1, gy + 2, x1, gy + 2, fill=BG)
+        self.create_line(x0, gy + 3, x1 + 1, gy + 3, fill=EDGE_LIGHT)  # white bottom / right
+        self.create_line(x1, gy, x1, gy + 4, fill=EDGE_LIGHT)
+        # a tick mark at each stop (1 px boxes, so dark mode lightens them like text)
+        for v in range(self.lo, self.hi + 1, self.res):
+            tx = round(self.x_of(v))
+            self.create_rectangle(tx, ty + 23, tx + 1, ty + 26, fill=ink, outline="")
+        # the thumb: 11 px wide, a 16 px body and a 5 px point, raised like a button
+        l, r, b = cx - 5, cx + 5, ty + 15
+        self.create_polygon(l, ty, r, ty, r, b, cx, b + 5, l, b, fill=BG, outline="")
+        self.create_line(l, b, l, ty, r, ty, fill=EDGE_LIGHT)  # white left / top ...
+        self.create_line(l, b, cx, b + 5, fill=EDGE_LIGHT)  # ... and left slope
+        self.create_line(r - 1, ty + 1, r - 1, b, cx, b + 4, fill=EDGE_SHADOW)  # grey inner
+        self.create_line(r, ty, r, b, cx, b + 5, fill=EDGE_DARK)  # black right and slope
+        if not self.enabled:  # greyed out: a dotted face, like a disabled Windows thumb
+            for yy in range(ty + 2, b, 2):
+                for xx in range(l + 2 + (yy // 2) % 2, r - 1, 2):
+                    self.create_rectangle(xx, yy, xx + 1, yy + 1, fill=EDGE_LIGHT, outline="")
+
+
 class FlatScrollbar(tk.Canvas):
     """Vertical scrollbar in the modern flat Windows style: light-grey track, small chevron
     arrows without button boxes, a flat grey thumb that darkens on hover and while dragged.
@@ -1691,7 +2470,7 @@ class ThumbGrid(tk.Frame):
     def __init__(self, parent, owner, hint):
         super().__init__(parent, bg=BG)
         self.owner, self.hint = owner, hint
-        self.small = tkfont.Font(family="Tahoma", size=8)
+        self.small = tkfont.Font(family=FONT[0], size=FONT[1])
         self.canvas = c = tk.Canvas(self, bg="white", relief="sunken", bd=2,
                                     highlightthickness=0, height=200)
         self.sb = FlatScrollbar(self, command=c.yview)
@@ -2317,30 +3096,67 @@ class App(BaseTk):
         super().__init__()
         self.title("Master Converter")
         self.set_icon()
-        self.minsize(480, 652)
-        self.center_on_screen(560, 692)
+        # the app's font everywhere: widgets without a font of their own (the dropdown boxes
+        # and their lists) use Tk's default fonts, which are Segoe UI on Windows
+        for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont",
+                     "TkCaptionFont", "TkSmallCaptionFont", "TkIconFont", "TkTooltipFont"):
+            tkfont.nametofont(name).configure(family=FONT[0], size=FONT[1])
+        # The window opens at its smallest size - 26 px taller than before the menu bar (and
+        # its line) was added, so everything below it keeps its size. It can be made bigger,
+        # not smaller: 540 px is the width the widest page (the Images, Videos and Audio tabs,
+        # 533 px) needs, so nothing is ever cut off.
+        global CAPTION_ACTIVE
+        settings = load_settings()
+        self.palette_name, self.custom_color = theme_look(settings)[1:]
+        CAPTION_ACTIVE = palette_colors(self.palette_name, self.custom_color)
+        self.minsize(540, 718)
+        self.center_on_screen(560, 718)
         self.configure(bg=BG)
         # classic navy title bar + 3D border; everything else goes inside chrome.body
-        self.chrome = ClassicWindow(self, "Master Converter", self.on_close, min_size=(480, 652))
+        self.chrome = ClassicWindow(self, "Master Converter", self.on_close, min_size=(540, 718))
+        self.apply_icon()  # the logo before the title (or the custom one from Settings)
         content = self.chrome.body
         self.files, self.outdir = [], ""
         self.names = []  # custom name for the converted file (None = keep original)
-        self.small = tkfont.Font(family="Tahoma", size=8)
+        self.small = tkfont.Font(family=FONT[0], size=FONT[1])
 
         self.style_ttk()  # lists and dropdowns: classic shapes, same in light and dark
 
+        global SOUNDS_ON, SHOW_HELP
+        SOUNDS_ON = load_settings().get("sounds", True)
+        SHOW_HELP = load_settings().get("whats_this", True)
+        self.brush_icon = brush_icon()  # (the Theme list's Custom item: go to Settings)
+        # menu bar under the title bar: Home / Settings / About switch the page below it,
+        # Theme opens a list
+        self.menubar = MenuBar(content, [
+            ("Home", "page", lambda: self.show_panel("home")),
+            ("Settings", "page", lambda: self.show_panel("settings")),
+            ("Theme", "menu", lambda: [
+                (THEME_NAMES[t], lambda t=t: self.pick_theme(t), t == self.theme_choice)
+                for t in THEME_NAMES] + [
+                None, ("Custom", lambda: self.pick_theme(CUSTOM_THEME),
+                       self.theme_choice == CUSTOM_THEME,
+                       # in use: a clickable brush that opens Settings, where Custom is edited
+                       (self.brush_icon, lambda: self.show_panel("settings")))]),
+            ("About", "page", lambda: self.show_panel("about")),
+        ])
+        self.menubar.pack(fill="x", padx=2, pady=(1, 0))
+        # etched line under it, like classic Windows' menu bars - drawn the same way as the
+        # line round the Files / Options boxes (a 2 px groove), so it looks the same in both modes
+        # (its own face colour: the same as BG in light mode, 2 steps darker in dark mode)
+        tk.Frame(content, bg="#EBE8D7", height=2, bd=2, relief="groove").pack(fill="x", padx=2, pady=(1, 0))
+        # Home: the converter itself (tabs and their pages); Settings and About take its place
+        home = tk.Frame(content, bg=BG)
+        self.panels = {"home": home, "settings": self.build_settings(content),
+                       "about": self.build_about(content)}
+        self.panel = None
+        # What's This? (the ? button, on the Home and Settings pages - see show_panel)
+        self.help_mode = WhatsThis(self, self.chrome, self.whats_this_note)
+        self.show_panel("home")
         # tabs on top, sitting on the raised border around the open page
-        self.tabs = ClassicTabs(content, self.show_page)
+        self.tabs = ClassicTabs(home, self.show_page)
         self.tabs.pack(fill="x", padx=6, pady=(6, 0))
-        # small light / dark mode button at the right end of the tab row
-        self._theme_icons = {False: theme_icon("moon"), True: theme_icon("sun")}
-        self.theme_btn = xp_button(content, "", self.toggle_theme)
-        self.theme_btn.config(image=self._theme_icons[False], width=16, height=12, padx=0,
-                              pady=0, highlightthickness=0)
-        # y=-1: in the 29 px between the title bar and the page's top edge, 6 px above it
-        # and 5 below
-        self.theme_btn.place(in_=self.tabs, relx=1.0, x=-3, y=-1, anchor="ne")
-        area = framed_page(content)
+        area = framed_page(home)
         body = tk.Frame(area, bg=BG, padx=10, pady=8)
         self.video = VideoPanel(area, self)
         self.voice = AudioPanel(area, self)
@@ -2395,8 +3211,7 @@ class App(BaseTk):
         self.qlabel = tk.Label(opt, text="Quality:", bg=BG, font=FONT)
         self.qlabel.grid(row=1, column=0, sticky="w")
         self.quality = tk.IntVar(value=90)
-        self.qscale = tk.Scale(opt, from_=1, to=100, orient="horizontal", variable=self.quality,
-                               bg=BG, font=FONT, length=200, highlightthickness=0)
+        self.qscale = TrackBar(opt, self.quality, from_=0, to=100, length=200)
         self.qscale.grid(row=1, column=1, sticky="w", padx=6)
         self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
         # pinned beside the slider, outside the grid, so it can't shift the Browse button
@@ -2442,8 +3257,10 @@ class App(BaseTk):
         self.tabs.select("images")
         self.files_box.refresh()
         self.color_dropdown_lists()  # the same selection blue from the start
-        if load_settings().get("dark"):  # dark mode chosen last time
-            self.set_theme(True)
+        self.theme_choice = saved_theme(settings)  # the theme chosen last time (Windows 98 at first)
+        self.apply_look(*theme_look(settings, self.theme_choice))
+        if settings.get("start_maximized"):
+            self.after_idle(self.chrome.toggle_maximize)
         self.after(800, self.startup_update_tasks)
 
     # ---- updates ----
@@ -2575,17 +3392,51 @@ class App(BaseTk):
         threading.Thread(target=download, daemon=True).start()
         self.after(100, poll)
 
-    # ---- light / dark mode ----
-    def toggle_theme(self):
-        self.set_theme(not DARK_MODE)
-        save_settings(dark=DARK_MODE)
+    # ---- themes ----
+    def pick_theme(self, choice):
+        """Theme menu: a built-in theme (its own fixed look), or Custom - your own appearance
+        and title bar, as you last left them in Settings."""
+        settings = load_settings()
+        if choice == CUSTOM_THEME and not settings.get("custom_theme"):
+            # never set up: Custom starts as what's on screen now
+            save_settings(custom_theme={"appearance": THEME, "palette": self.palette_name,
+                                        "custom_color": self.custom_color})
+            settings = load_settings()
+        self.theme_choice = choice
+        save_settings(theme=choice)
+        self.apply_look(*theme_look(settings, choice))
 
-    def set_theme(self, dark):
-        """Switch the whole app between light and dark."""
-        global DARK_MODE
-        if dark == DARK_MODE:
+    def apply_look(self, appearance, palette, custom_color):
+        """Show an appearance (see THEME_COLORS) with a title bar palette."""
+        global CAPTION_ACTIVE
+        self.palette_name, self.custom_color = palette, custom_color
+        CAPTION_ACTIVE = palette_colors(palette, custom_color)
+        self.chrome._grad = None  # its gradient picture is made again in the new colours
+        self.set_theme(appearance)
+        self.chrome.draw()
+        if hasattr(self, "palette_var"):  # Settings shows what's in use
+            self.palette_var.set(palette)
+            self.appearance_var.set(APPEARANCE_NAMES[appearance])
+            self.draw_palette_strip()
+
+    def save_custom(self, appearance, palette, custom_color):
+        """A change made in Settings: it becomes (and is saved as) the Custom theme."""
+        self.theme_choice = CUSTOM_THEME
+        save_settings(theme=CUSTOM_THEME, custom_theme={
+            "appearance": appearance, "palette": palette, "custom_color": custom_color})
+        self.apply_look(appearance, palette, custom_color)
+
+    def set_appearance(self, name):  # Settings > Appearance
+        appearance = next(k for k, v in APPEARANCE_NAMES.items() if v == name)
+        self.save_custom(appearance, self.palette_name, self.custom_color)
+
+    def set_theme(self, theme):
+        """Switch the whole app to another appearance (see THEME_COLORS)."""
+        global THEME, DARK_MODE
+        if theme == THEME:
             return
-        DARK_MODE = dark  # from here on, every colour given to Tk goes through dark_color()
+        old, THEME, DARK_MODE = THEME, theme, theme == "dark"
+        dark = DARK_MODE  # from here on, every colour given to Tk goes through theme_color()
         self.style_ttk()
         self.option_clear()  # defaults for widgets made from now on (menus, dialogs...)
         if dark:
@@ -2602,7 +3453,7 @@ class App(BaseTk):
                 self.option_add(pattern, value)
         widgets = all_widgets(self)
         for w in widgets:  # everything that already exists
-            retheme(w, dark)
+            retheme(w, old, theme)
         for w in widgets:  # the custom-drawn parts: redraw them in the new colours
             if isinstance(w, (ClassicTabs, FlatScrollbar)):
                 w.draw()
@@ -2615,7 +3466,6 @@ class App(BaseTk):
             elif isinstance(w, GifPanel):
                 w.draw_strip()
         self.chrome.draw()
-        self.theme_btn.config(image=self._theme_icons[dark])
         self.color_dropdown_lists()
         self.update_quality_state()  # the ICO size list's height differs between the modes
 
@@ -2626,8 +3476,8 @@ class App(BaseTk):
             if isinstance(w, ttk.Combobox):
                 popdown = self.tk.call("ttk::combobox::PopdownWindow", w)
                 self.tk.call(f"{popdown}.f.l", "configure",
-                             "-background", DARK_BOX if DARK_MODE else "white",
-                             "-foreground", DARK_TEXT if DARK_MODE else "black",
+                             "-background", theme_color("#FFFFFF", "box"),
+                             "-foreground", theme_color("#000000", "text"),
                              "-selectbackground", "#316AC5", "-selectforeground", "white")
 
     def style_ttk(self):
@@ -2637,12 +3487,11 @@ class App(BaseTk):
         stay exactly the same in light and dark, only the colours change."""
         style = ttk.Style(self)
         style.theme_use("alt")
-        if DARK_MODE:
-            face, box, text, trough, hot, grey = (DARK_FACE, DARK_BOX, DARK_TEXT, "#262626",
-                                                  "#474747", "#7a7a7a")
-        else:
-            face, box, text, trough, hot, grey = (BG, "white", "black", "#F7F6F0",
-                                                  "#F5F3E8", "#999999")
+        # (styles don't go through the colour translator: translated here)
+        face, box, text, trough, hot, grey = (
+            theme_color(BG), theme_color("#FFFFFF", "box"), theme_color("#000000", "text"),
+            theme_color("#F7F6F0"), theme_color("#F5F3E8"),
+            "#7a7a7a" if DARK_MODE else "#999999")
         style.configure(".", background=face, foreground=text, fieldbackground=box,
                         troughcolor=trough, selectbackground="#316AC5",
                         selectforeground="white", arrowcolor=text, font=FONT)
@@ -2742,6 +3591,567 @@ class App(BaseTk):
 
     def btn(self, parent, text, cmd, bold=False):
         return xp_button(parent, text, cmd, bold)
+
+    # ---- Home / Settings / About ----
+    def show_panel(self, name):
+        if name == self.panel:
+            return
+        for panel in self.panels.values():
+            panel.pack_forget()
+        self.panels[name].pack(fill="both", expand=True)
+        self.panel = name
+        self.menubar.set_current(name.capitalize())
+        # the ? (What's This?) button is in the title bar on the Home and Settings pages
+        if hasattr(self, "help_mode"):
+            self.help_mode.stop()
+            self.help_mode.close_note()
+            self.chrome.on_help = (self.help_mode.start
+                                   if SHOW_HELP and name in ("home", "settings") else None)
+            self.chrome.draw()
+
+    MENU_NOTES = {
+        "Home": "The converter: the Images, Videos, Audio and GIF Maker tabs.",
+        "Settings": "Where the app is installed, sound effects, the app's icon, its theme, and "
+                    "how the window opens.",
+        "Theme": "Changes the app's look: Windows 98, Ivory, Dark, or your own Custom theme.",
+        "About": "About Master Converter.",
+    }
+    TAB_NOTES = {
+        "images": "Convert pictures from one format to another (PNG, JPEG, WEBP, HEIC, ICO, "
+                  "PDF and more).",
+        "videos": "Convert videos to another format or size, turn them into GIFs, or keep "
+                  "just their sound.",
+        "voice": "Convert sound files from one format to another, or take the sound out of "
+                 "videos.",
+        "gif": "Make a GIF from part of a video: choose the part on the timeline and save it.",
+    }
+    NOUNS = {"images": "picture", "videos": "video", "voice": "sound file"}
+
+    def whats_this_note(self, widget, x_root, y_root):
+        """What's This? note for whatever was clicked: the menu bar, then the page's own."""
+        for name, btn in self.menubar.labels.items():
+            if widget is btn:
+                return self.MENU_NOTES[name]
+        if self.panel == "settings":
+            return self.settings_note(widget, x_root, y_root)
+        if self.panel == "home":
+            return self.home_note(widget, x_root)
+        return None
+
+    def home_note(self, widget, x_root):
+        """What's This? on the Home page: the tabs, and every part of each tab."""
+        if widget is self.tabs:  # which tab was clicked?
+            x = x_root - self.tabs.winfo_rootx()
+            key = next((k for k, x0, x1 in self.tabs.boxes if x0 <= x < x1), None)
+            return self.TAB_NOTES.get(key)
+        page, w = None, widget  # which tab's page it's on
+        while w is not None:
+            page = next((k for k, p in self.pages.items() if p is w), None)
+            if page:
+                break
+            w = w.master
+        if not page:
+            return None
+        noun = self.NOUNS.get(page, "file")
+        panel = {"images": self, "videos": self.video, "voice": self.voice,
+                 "gif": self.gif}[page]
+        # the file list (either view, and its scrollbar)
+        w = widget
+        while w is not None and w is not panel:
+            if isinstance(w, FlatScrollbar):
+                return "Scrolls the list."
+            if isinstance(w, (ThumbGrid, DetailsList)):
+                return (f"The {noun}s to convert. Click one to select it; Ctrl or Shift + click, "
+                        f"or drag a box, to select several. Right-click one to rename, "
+                        f"duplicate, find or remove it. Point at one to see its details.")
+            w = w.master
+        # parts known by what they are
+        common = {
+            "progress": "Shows how far the conversion has got.",
+            "status": "What's happening: how many files there are, how far it has got, or "
+                      "what went wrong.",
+            "show_btn": "Opens the folder with the new files highlighted, once they're made.",
+            "outlabel": "Where the converted files go. At first each one is saved next to its "
+                        "original.",
+        }
+        if page == "gif":
+            common.update({
+                "status": "What's happening: the video's details, how far making the GIF has "
+                          "got, or what went wrong.",
+                "progress": "Shows how far making the GIF has got.",
+                "show_btn": "Opens the folder with the new GIF highlighted.",
+                "outlabel": "Where the GIF goes. At first it's saved next to the video.",
+                "screen": "The preview: shows the picture at the playhead, and plays the chosen "
+                          "part when you press Play.",
+                "play_btn": "Plays the chosen part in the preview. Click again to stop.",
+                "strip": "The timeline. Drag the handles at its ends to choose the part that "
+                         "becomes the GIF, drag inside the chosen part to move it, and click to "
+                         "move the playhead.",
+                "range_label": "Where the chosen part starts and ends, and how long it is.",
+                "size_label": "About how big the GIF will be with the options below.",
+                "pos_label": "Where the playhead is.",
+                "file_label": "The video that's open.",
+                "open_btn": "Choose a video (or a GIF) to make a GIF from.",
+                "clear_btn": "Closes the video.",
+                "make_btn": "Saves the chosen part of the video as a GIF.",
+            })
+        else:
+            common["qscale"] = {
+                "images": "How much each picture is compressed: higher looks better but makes "
+                          "a bigger file. It's only used by formats that compress (JPEG, WEBP, "
+                          "AVIF, HEIC...) and is greyed out for the others.",
+                "videos": "How much the video is compressed: higher looks better but makes a "
+                          "bigger file.",
+                "voice": "How much the sound is compressed, in kbps: higher sounds better but "
+                         "makes a bigger file. Original keeps each file's own quality.",
+            }[page]
+            common["qnote"] = ("A note about the quality setting beside it - for example, "
+                               "when the chosen format doesn't use it.")
+            common["snote"] = "Says why the settings beside it aren't used for this format."
+            common["ico_cb"] = ("Which sizes the icon file holds. Windows picks the best one "
+                                "for each place it shows an icon, so all sizes is usually best.")
+            common["mute_cb"] = "Leaves the sound out of the converted videos."
+        for attr, note in common.items():
+            if getattr(panel, attr, None) is widget:
+                return note
+        if widget is self.pages[page]:  # the page's empty background: what the tab is for
+            return self.TAB_NOTES[page]
+        if getattr(panel, "status", None) in widget.winfo_children():  # the bar at the bottom
+            return common["status"]
+        # dropdowns, by the setting they change (their labels say the same)
+        combo = {
+                ("images", "fmt"): "The format the pictures are converted to.",
+                ("videos", "fmt"): "The format the videos are converted to. GIF makes moving "
+                                   "pictures; MP3 keeps only the sound.",
+                ("videos", "size"): "How tall the video is: Original keeps its size; a smaller "
+                                    "one makes a smaller file.",
+                ("videos", "fps"): "Pictures per second: Original keeps them; fewer makes a "
+                                   "smaller file, but less smooth.",
+                ("voice", "fmt"): "The format the sound is converted to. For a video, only its "
+                                  "sound is kept.",
+                ("voice", "bitrate"): "How much the sound is compressed, in kbps: higher sounds "
+                                      "better but makes a bigger file. Original keeps each "
+                                      "file's own quality.",
+                ("voice", "rate"): "How finely the sound is recorded, in Hz: Original keeps it; "
+                                   "44100 is CD quality; lower makes a smaller file.",
+                ("voice", "channels"): "Stereo (two channels) or Mono (one). Original keeps "
+                                       "each file's own.",
+                ("gif", "width"): "How wide the GIF is, in pixels: smaller makes a smaller file.",
+                ("gif", "fps"): "Pictures per second in the GIF: more is smoother but makes a "
+                                "bigger file.",
+        }
+        if isinstance(widget, ttk.Combobox):
+            var = str(widget.cget("textvariable"))
+            which = next((k for k, v in vars(panel).items()
+                          if isinstance(v, tk.Variable) and str(v) == var), None)
+            return combo.get((page, which))
+        # buttons, boxes and labels, by their text
+        try:
+            text = str(widget.cget("text")).strip().rstrip(":")
+        except tk.TclError:
+            text = ""
+        by_text = {
+            "Add...": f"Choose {noun}s to add to the list. You can also drag and drop files, or "
+                      f"whole folders, onto the window.",
+            "Remove": f"Takes the selected {noun}s off the list (the files themselves aren't "
+                      f"touched). The Delete key does the same.",
+            "Clear": f"Empties the list (the files themselves aren't touched).",
+            "Details": "Shows the list as details (name, type, size...). Ctrl + mouse wheel "
+                       "over the list switches views too.",
+            "Thumbnails": "Shows the list as thumbnails. Ctrl + mouse wheel over the list "
+                          "switches views too.",
+            "Convert to": combo.get((page, "fmt")),
+            "Quality": common.get("qscale"),
+            "Icon size": common.get("ico_cb"),
+            "Size": combo.get((page, "size")),
+            "Frame rate": combo.get((page, "fps")),
+            "Sample rate": combo.get((page, "rate")),
+            "Channels": combo.get((page, "channels")),
+            "Width": combo.get((page, "width")),
+            "Save to": common["outlabel"],
+            "Browse...": "Choose the folder to save in.",
+            "Keep photo info (date, camera, GPS location)":
+                "Keeps the details stored in each photo (date taken, camera, GPS location) in "
+                "the converted file, for formats that can hold them.",
+            "Convert": f"Converts every {noun} in the list. The originals are never changed, "
+                       f"and a new file never replaces one that's already there.",
+            "Plays": "Whether the GIF plays over and over, or once and then stops.",
+            "Loop forever": "The GIF plays over and over.",
+            "Play once": "The GIF plays once and then stops on its last picture.",
+        }
+        if by_text.get(text):
+            return by_text[text]
+        while widget is not None:  # anything else in a box: the box's note
+            if isinstance(widget, tk.LabelFrame):
+                return {
+                    "Files": f"The {noun}s to convert, and the buttons to add and remove them.",
+                    "Options": "How the files are converted.",
+                    "Preview": "The video you're making a GIF from, and the timeline to choose "
+                               "the part of it.",
+                    "GIF options": "How the GIF is made, and where it's saved.",
+                }.get(str(widget.cget("text")).strip())
+            widget = widget.master
+        return None
+
+    SETTINGS_NOTES = {  # What's This? on the Settings page: by a control's text, or its box's
+        "Settings": "Settings for Master Converter. Click ? and then any setting to see what "
+                    "it does.",
+        "App location": "The folder Master Converter is installed in. To move it, uninstall "
+                        "it and install it again into another folder.",
+        "Open folder": "Opens the folder Master Converter is installed in.",
+        "Sound effects": "Plays a short chime when a job is done and a low tone when something "
+                         "fails. Untick it for silence.",
+        "App icon": "The picture shown at the left of the title bar and on the taskbar.",
+        "Choose file...": "Use your own picture (.ico, .png, .jpg ...) as the app's icon.",
+        "Reset to default": "Goes back to Master Converter's own icon.",
+        "No icon in the title bar": "Hides the icon at the left of the title bar. The taskbar "
+                                    "still shows it.",
+        "Theme": "The app's colours. A change here is saved as the Custom theme, which you "
+                 "can pick again any time from the Theme menu.",
+        "Appearance": "The colours of the whole app: Light grey, Ivory or Dark grey. A change "
+                      "is saved as the Custom theme.",
+        "Color palette": "The colours of the title bar. Choose Custom... to pick any colour. A "
+                         "change is saved as the Custom theme.",
+        "strip": "Shows the title bar's colours.",
+        "Window": "Whether Master Converter opens at its normal size or maximized (filling "
+                  "the screen).",
+        "Help": "Shows or hides the ? button in the title bar - the one you just used. It "
+                "explains whatever you click next.",
+        "Show the ? button in the title bar":
+            "Shows or hides the ? button in the title bar - the one you just used. Untick it "
+            "and it disappears from every window (turn it back on here).",
+        "Updates": "Which version of Master Converter you have, and a button to look for a "
+                   "newer one.",
+        "Check for updates": "Looks for a newer version now. If there is one, you can install "
+                             "it straight away - the app restarts by itself.",
+        "update_status": "What the last check for updates found.",
+    }
+
+    def settings_note(self, widget, x_root, y_root):
+        """What's This? note for the part of the Settings page that was clicked."""
+        notes = self.SETTINGS_NOTES
+        if widget is self.palette_strip:
+            return notes["strip"]
+        if widget is self.icon_preview:
+            return notes["App icon"]
+        if widget is self.version_label:
+            return notes["Updates"]
+        if widget is self.update_status:
+            return notes["update_status"]
+        if isinstance(widget, ttk.Combobox):
+            var = str(widget.cget("textvariable"))
+            return notes["Appearance" if var == str(self.appearance_var) else "Color palette"]
+        try:
+            text = str(widget.cget("text")).strip().rstrip(":")
+        except tk.TclError:
+            text = ""
+        if text in notes:
+            return notes[text]
+        while widget is not None:  # anything else in a box: the box's note
+            if isinstance(widget, tk.LabelFrame):
+                return notes.get(str(widget.cget("text")).strip())
+            widget = widget.master
+        return None
+
+    def build_settings(self, parent):
+        page = tk.Frame(parent, bg=BG, padx=12, pady=10)
+        tk.Label(page, text="Settings", bg=BG, font=(FONT[0], FONT[1], "bold"),
+                 anchor="w").pack(fill="x", pady=(0, 4))
+
+        # where the app is installed
+        box = tk.LabelFrame(page, text=" App location ", bg=BG, font=FONT, padx=8, pady=8)
+        box.pack(fill="x")
+        tk.Label(box, text="Master Converter is installed in:", bg=BG, font=FONT,
+                 anchor="w").pack(fill="x")
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill="x", pady=(4, 0))
+        folder = app_folder()
+        xp_button(row, "Open folder", lambda: os.startfile(folder)).pack(side="right", padx=(6, 0))
+        where = tk.Entry(row, font=FONT, relief="sunken", bd=2, bg="white")
+        where.insert(0, folder)
+        # read-only, but still selectable and copyable (Ctrl+C); not state="readonly", whose
+        # own background colour wouldn't follow dark mode
+        where.bind("<Key>", lambda e: None if e.state & 0x4 else "break")
+        where.pack(side="left", fill="x", expand=True)
+        tk.Label(box, text="To move it, uninstall it and install it again into another folder.",
+                 bg=BG, fg="#666666", font=FONT, anchor="w").pack(fill="x", pady=(4, 0))
+
+        # sound effects on / off
+        box = tk.LabelFrame(page, text=" Sound effects ", bg=BG, font=FONT, padx=8, pady=6)
+        box.pack(fill="x", pady=(6, 0))
+        self.sounds_var = tk.BooleanVar(value=SOUNDS_ON)
+        tk.Checkbutton(box, text="Play a sound when a job is done or something fails",
+                       variable=self.sounds_var, command=self.toggle_sounds, bg=BG,
+                       activebackground=BG, font=FONT).pack(anchor="w")
+
+        # the app's icon
+        box = tk.LabelFrame(page, text=" App icon ", bg=BG, font=FONT, padx=8, pady=8)
+        box.pack(fill="x", pady=(6, 0))
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill="x")
+        self.icon_preview = tk.Label(row, bg="white", relief="sunken", bd=2)
+        self.icon_preview.pack(side="left")
+        col = tk.Frame(row, bg=BG)
+        col.pack(side="left", padx=(10, 0))
+        tk.Label(col, text="Shown in the title bar and on the taskbar.", bg=BG, font=FONT,
+                 anchor="w").pack(anchor="w")
+        btns = tk.Frame(col, bg=BG)
+        btns.pack(anchor="w", pady=(6, 0))
+        xp_button(btns, "Choose file...", self.choose_icon).pack(side="left")
+        xp_button(btns, "Reset to default", self.reset_icon).pack(side="left", padx=(6, 0))
+        self.no_icon_var = tk.BooleanVar(value=load_settings().get("no_icon", False))
+        tk.Checkbutton(box, text="No icon in the title bar", variable=self.no_icon_var,
+                       command=self.toggle_no_icon, bg=BG, activebackground=BG,
+                       font=FONT).pack(anchor="w", pady=(6, 0))
+        self.apply_icon()  # fills the preview
+
+        # the theme: the app's colours (light grey, ivory, dark grey ...) and the title bar's,
+        # side by side, with a strip showing the title bar (like Windows' Display settings);
+        # a change here is saved as the Custom theme
+        box = tk.LabelFrame(page, text=" Theme ", bg=BG, font=FONT, padx=8, pady=8)
+        box.pack(fill="x", pady=(6, 0))
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill="x")
+        tk.Label(row, text="Appearance:", bg=BG, font=FONT).pack(side="left")
+        self.appearance_var = tk.StringVar(value=APPEARANCE_NAMES[THEME])
+        cb = ttk.Combobox(row, textvariable=self.appearance_var,
+                          values=list(APPEARANCE_NAMES.values()), state="readonly", width=14)
+        cb.pack(side="left", padx=(6, 0))
+        cb.bind("<<ComboboxSelected>>", lambda e: self.set_appearance(self.appearance_var.get()))
+        tk.Label(row, text="Color palette:", bg=BG, font=FONT).pack(side="left", padx=(16, 0))
+        self.palette_var = tk.StringVar(value=self.palette_name)
+        cb = ttk.Combobox(row, textvariable=self.palette_var,
+                          values=list(TITLE_PALETTES) + [CUSTOM_PALETTE], state="readonly",
+                          width=18)
+        cb.pack(side="left", padx=(6, 0))
+        cb.bind("<<ComboboxSelected>>", lambda e: self.set_palette(self.palette_var.get()))
+        self.palette_strip = tk.Canvas(box, height=14, width=1, highlightthickness=0, bd=2,
+                                       relief="sunken")
+        self.palette_strip.pack(fill="x", pady=(8, 0))
+        self.palette_strip.bind("<Configure>", lambda e: self.draw_palette_strip())
+        tk.Label(box, text="Changes here are saved as the Custom theme.", bg=BG,
+                 fg="#666666", font=FONT, anchor="w").pack(fill="x", pady=(6, 0))
+
+        # Window and Help side by side, as two equal boxes
+        pair = tk.Frame(page, bg=BG)
+        pair.pack(fill="x", pady=(6, 0))
+        pair.columnconfigure((0, 1), weight=1, uniform="pair")
+        pair.rowconfigure(0, weight=1)
+
+        # how the window opens
+        box = tk.LabelFrame(pair, text=" Window ", bg=BG, font=FONT, padx=8, pady=6)
+        box.grid(row=0, column=0, sticky="nsew", padx=(0, 3))
+        tk.Label(box, text="When the app starts:", bg=BG, font=FONT).pack(anchor="w")
+        choices = tk.Frame(box, bg=BG)
+        choices.pack(anchor="w", pady=(2, 0))
+        self.start_var = tk.StringVar(
+            value="max" if load_settings().get("start_maximized") else "normal")
+        for text, val in (("Normal size", "normal"), ("Maximized", "max")):
+            tk.Radiobutton(choices, text=text, variable=self.start_var, value=val, bg=BG,
+                           activebackground=BG, font=FONT,
+                           command=lambda: save_settings(
+                               start_maximized=self.start_var.get() == "max")
+                           ).pack(side="left", padx=(0, 10))
+
+        # the ? (What's This?) buttons on or off
+        box = tk.LabelFrame(pair, text=" Help ", bg=BG, font=FONT, padx=8, pady=6)
+        box.grid(row=0, column=1, sticky="nsew", padx=(3, 0))
+        self.help_var = tk.BooleanVar(value=SHOW_HELP)
+        tk.Checkbutton(box, text="Show the ? button in the title bar",
+                       variable=self.help_var, command=self.toggle_whats_this, bg=BG,
+                       activebackground=BG, font=FONT).pack(anchor="w")
+        tk.Label(box, text="(What's This? - it explains what you click)", bg=BG,
+                 fg="#666666", font=FONT).pack(anchor="w", padx=(22, 0))
+
+        # the version, and checking for a newer one
+        box = tk.LabelFrame(page, text=" Updates ", bg=BG, font=FONT, padx=8, pady=8)
+        box.pack(fill="x", pady=(6, 0))
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill="x")
+        running_source = parse_version(APP_VERSION) is None
+        self.version_label = tk.Label(
+            row, bg=BG, font=FONT, anchor="w",
+            text="Version: " + ("dev (running from the source code)" if running_source
+                                else APP_VERSION))
+        self.version_label.pack(side="left")
+        self.update_btn = xp_button(row, "Check for updates", self.check_updates_now)
+        self.update_btn.pack(side="right")
+        self.update_status = tk.Label(box, text="", bg=BG, fg="#666666", font=FONT, anchor="w",
+                                      justify="left")
+        self.update_status.pack(fill="x", pady=(6, 0))
+        # wraps only if the box is too narrow for its (one-line) messages
+        self.update_status.bind("<Configure>", lambda e: self.update_status.config(
+            wraplength=max(e.width - 4, 100)))
+        return page
+
+    def toggle_whats_this(self):  # Settings > Help
+        global SHOW_HELP
+        SHOW_HELP = self.help_var.get()
+        save_settings(whats_this=SHOW_HELP)
+        self.help_mode.stop()
+        self.help_mode.close_note()
+        self.chrome.on_help = (self.help_mode.start
+                               if SHOW_HELP and self.panel in ("home", "settings") else None)
+        self.chrome.draw()
+
+    def check_updates_now(self):
+        """Settings > Updates > Check for updates: ask GitHub now (off the main thread) and
+        say what was found; a newer version is offered straight away."""
+        self.update_btn.config(state="disabled")
+        self.update_status.config(text="Checking for updates...", fg="#666666")
+        found = queue.Queue()
+        threading.Thread(target=lambda: found.put(fetch_latest_release()), daemon=True).start()
+
+        def wait():
+            try:
+                latest = found.get_nowait()
+            except queue.Empty:
+                self.after(200, wait)
+                return
+            self.update_btn.config(state="normal")
+            self.update_checked(latest)
+        self.after(200, wait)
+
+    def update_checked(self, latest):
+        if latest is None:
+            self.update_status.config(
+                text="Couldn't reach GitHub - check the internet connection and try again.",
+                fg="#C00000")
+            return
+        version, notes, url = latest
+        mine = parse_version(APP_VERSION)
+        if mine is None:
+            self.update_status.config(
+                text=f"Newest version: {version}. This copy runs from the source code, so it "
+                     f"can't update itself.",
+                fg="#666666")
+        elif parse_version(version) > mine:
+            self.update_status.config(text=f"Version {version} is available.", fg="#666666")
+            choice = dialog("Update available",
+                            f"Master Converter {version} is available.\n"
+                            f"You have version {APP_VERSION}.",
+                            ("Update now", "Not now"), sound="done")
+            if choice == "Update now":
+                self.install_update(version, notes, url)
+        else:
+            self.update_status.config(text=f"You have the newest version ({APP_VERSION}).",
+                                      fg="#666666")
+
+    PROFILE_URL = "https://github.com/bocchhii"
+
+    def build_about(self, parent):
+        """The About page, all centred: the name, what the app is for, and at the bottom who
+        made it, with a link to their GitHub profile."""
+        page = tk.Frame(parent, bg=BG, padx=12, pady=120)
+        tk.Label(page, text="Master Converter", bg=BG, font=(FONT[0], 42, "bold"),
+                 justify="center").pack(pady=(34, 14))
+        tk.Label(page, text="Do you have an image you want to convert but aren't sure how? Are "
+                            "you concerned about the safety of online file conversion sites? I "
+                            "designed this tool to solve this issue.",
+                 bg=BG, font=(FONT[0], 12), justify="center", wraplength=380).pack()
+        # at the bottom: who made it, and where to find more of their tools
+        bottom = tk.Frame(page, bg=BG)
+        bottom.pack(side="bottom", pady=(0, 110))
+        tk.Label(bottom, text="Developer: bocchi the old", bg=BG,
+                 font=(FONT[0], FONT[1], "bold"), justify="center").pack()
+        tk.Label(bottom, text="For more future tools, check out my profile:", bg=BG, font=FONT,
+                 justify="center").pack(pady=(0, 0))
+        link = tk.Label(bottom, text=self.PROFILE_URL, bg=BG, fg="#0000EE", cursor="hand2",
+                        font=(FONT[0], FONT[1], "underline"), justify="center")
+        link.pack()
+        link.bind("<ButtonRelease-1>", lambda e: self.open_profile())
+        return page
+
+    def open_profile(self):
+        import webbrowser
+        webbrowser.open(self.PROFILE_URL)
+
+    def set_palette(self, name):
+        """Settings > Color palette: recolour the title bar (and every message box's); saved
+        as the Custom theme. Custom... asks for a colour (color_dialog) each time."""
+        color = self.custom_color
+        if name == CUSTOM_PALETTE:
+            color = color_dialog(self, "Edit Colors", CAPTION_ACTIVE[0], beside=True)
+            if not color:  # cancelled: keep the palette there was
+                self.palette_var.set(self.palette_name)
+                return
+            color = custom_palette(color)[0]
+        self.save_custom(THEME, name, color)
+
+    def draw_palette_strip(self):
+        c = self.palette_strip
+        w, h = max(c.winfo_width() - 4, 1), 14
+        a, b = ([int(col[i:i + 2], 16) for i in (1, 3, 5)] for col in CAPTION_ACTIVE)
+        ramp = Image.new("RGB", (256, 1))
+        ramp.putdata([tuple(round(p + (q - p) * i / 255) for p, q in zip(a, b))
+                      for i in range(256)])
+        self._strip = ImageTk.PhotoImage(ramp.resize((w, h)))
+        c.delete("all")
+        c.create_image(2, 2, image=self._strip, anchor="nw")
+
+    def toggle_no_icon(self):
+        save_settings(no_icon=self.no_icon_var.get())
+        self.apply_icon()
+
+    def toggle_sounds(self):
+        global SOUNDS_ON
+        SOUNDS_ON = self.sounds_var.get()
+        save_settings(sounds=SOUNDS_ON)
+        play_sound("done")  # a sample when switched on (nothing when off)
+
+    def apply_icon(self):
+        """The app's icon - the custom one from Settings if there is one - on the window
+        (taskbar, Alt+Tab), before the title, and in the Settings preview."""
+        custom = os.path.exists(CUSTOM_ICON)
+        path = CUSTOM_ICON if custom else resource_path("icon.png")
+        try:
+            im = Image.open(path).convert("RGBA")
+        except Exception:
+            return  # missing / broken icon file: keep what's there
+        if custom:
+            self._win_icons = [ImageTk.PhotoImage(im.resize((n, n), Image.LANCZOS))
+                               for n in (48, 32, 16)]
+            self.iconphoto(True, *self._win_icons)
+        else:
+            self.set_icon()
+        if load_settings().get("no_icon"):  # Settings > No icon in the title bar
+            self.chrome.icon = None
+            self.chrome.draw()
+        else:
+            self.chrome.set_icon(path)
+        if hasattr(self, "icon_preview"):  # (Settings is built after the title bar)
+            self._preview_icon = ImageTk.PhotoImage(im.resize((32, 32), Image.LANCZOS))
+            self.icon_preview.config(image=self._preview_icon)
+
+    def choose_icon(self):
+        path = filedialog.askopenfilename(
+            parent=self, title="Choose an icon",
+            filetypes=[("Images", "*.ico *.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                       ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            im = Image.open(path)
+            if im.format == "ICO":  # an icon holds several sizes: use the biggest
+                im.size = max(im.info.get("sizes", [im.size]))
+            im = im.convert("RGBA")
+            side = max(im.size)  # not square: centre it on a transparent square
+            square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+            square.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
+            os.makedirs(os.path.dirname(CUSTOM_ICON), exist_ok=True)
+            square.resize((256, 256), Image.LANCZOS).save(CUSTOM_ICON)
+        except Exception as e:
+            dialog("Master Converter", f"Couldn't use that picture as the icon:\n{e}",
+                   sound="error")
+            return
+        self.apply_icon()
+
+    def reset_icon(self):
+        try:
+            os.remove(CUSTOM_ICON)
+        except OSError:
+            pass
+        self.apply_icon()
 
     # ---- adding files (button or drag & drop) ----
     def add_files(self):
@@ -3114,9 +4524,8 @@ class VideoPanel(tk.Frame):
                      width=17).grid(row=0, column=1, sticky="w", padx=6, pady=2)
 
         tk.Label(opt, text="Quality:", bg=BG, font=FONT).grid(row=1, column=0, sticky="w")
-        self.quality = tk.IntVar(value=75)
-        self.qscale = tk.Scale(opt, from_=1, to=100, orient="horizontal", variable=self.quality,
-                               bg=BG, font=FONT, length=200, highlightthickness=0)
+        self.quality = tk.IntVar(value=80)  # (the slider stops at 0, 10 ... 100)
+        self.qscale = TrackBar(opt, self.quality, from_=0, to=100, length=200)
         self.qscale.grid(row=1, column=1, sticky="w", padx=6)
         self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
         self.qnote.place(in_=self.qscale, relx=1.0, rely=1.0, x=6, y=-4, anchor="sw")
@@ -3748,7 +5157,9 @@ class GifPanel(tk.Frame):
         self.file_label = tk.Label(top, text="No video opened.", bg=BG, font=FONT,
                                    fg="#666666", anchor="w")
         self.file_label.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        self.screen = tk.Canvas(box, bg="black", relief="sunken", bd=2, highlightthickness=0,
+        # a video screen stays black in every theme: #010101 looks the same as black, but the
+        # themes' colour tables don't touch it (dark mode lightens black in boxes, as text)
+        self.screen = tk.Canvas(box, bg="#010101", relief="sunken", bd=2, highlightthickness=0,
                                 height=150)
         self.screen.pack(fill="both", expand=True)
         self.screen.bind("<Configure>", lambda e: self.on_screen_resize())
@@ -3761,7 +5172,7 @@ class GifPanel(tk.Frame):
         # sunken like the preview screen; the play button stretches to the same height
         self.strip = tk.Canvas(bar, height=self.STRIP_H - 2 * self.STRIP_BD, bg="white",
                                relief="sunken", bd=self.STRIP_BD, highlightthickness=0)
-        self._tick_font = tkfont.Font(family="Tahoma", size=7)
+        self._tick_font = tkfont.Font(family="Small Fonts", size=7)  # the classic tiny font
         self.strip.pack(side="left", fill="both", expand=True, padx=(4, 0))
         self.strip.bind("<Configure>", lambda e: self.draw_strip())
         self.strip.bind("<Button-1>", self.on_strip_press)
@@ -3992,7 +5403,7 @@ class GifPanel(tk.Frame):
     def film_image(self, fw, fh):
         """The strip of frames across the whole bar, square cells, each showing the frame
         nearest the time under its middle."""
-        key = (fw, fh, len(self.thumbs), DARK_MODE)
+        key = (fw, fh, len(self.thumbs), THEME)
         if self._film_cache and self._film_cache[0] == key:
             return self._film_cache[1]
         film = Image.new("RGB", (fw, fh), themed("#D8D8D8"))  # grey until the frames load

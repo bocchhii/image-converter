@@ -37,8 +37,10 @@ with a classic Windows XP look. Everything runs on your own PC: no accounts, no 
 - Select several files with Ctrl / Shift / dragging; hover a file for its details.
 - "Show converted files" opens the folder with the new files highlighted.
 - Never overwrites anything: a name that's taken gets `_converted1`, `_converted2`, ...
-- **Dark mode**: the small moon / sun button at the right end of the tabs switches the whole app
-  between light and dark, and it remembers your choice.
+- **Themes**: the **Theme** menu switches the whole app between **Windows 98** (the default),
+  **Windows 98 Ivory** and **Windows 98 Dark**, and it remembers your choice.
+- **Settings**: see where the app is installed, turn the sound effects on or off, and use your
+  own picture as the app's icon.
 
 ---
 
