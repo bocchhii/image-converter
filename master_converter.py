@@ -13,6 +13,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -326,6 +327,86 @@ def theme_icon(kind):
     return ImageTk.PhotoImage(im)
 
 
+# ---- updates: new versions come from this project's GitHub Releases ----
+APP_VERSION = "dev"  # GitHub puts the release's version here when it builds the app
+GITHUB_REPO = "bocchhii/image-converter"
+
+
+def parse_version(text):
+    """ "v2.10.1" -> (2, 10, 1), so versions compare as numbers; None if there's none."""
+    nums = re.findall(r"\d+", text or "")
+    return tuple(int(n) for n in nums[:3]) if nums else None
+
+
+def fetch_latest_release():
+    """(version, release notes, installer download link) of the newest release, or None
+    (no internet, GitHub unreachable...). Only reads the public release list."""
+    import urllib.request
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+        headers={"User-Agent": "MasterConverter", "Accept": "application/vnd.github+json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.load(r)
+    except Exception:
+        return None
+    url = next((a.get("browser_download_url") for a in data.get("assets", [])
+                if a.get("name", "").lower().endswith("setup.exe")), None)
+    version = (data.get("tag_name") or "").lstrip("vV")
+    return (version, data.get("body") or "", url) if url and parse_version(version) else None
+
+
+def plain_notes(markdown):
+    """GitHub release notes are written in Markdown; show them as tidy plain text."""
+    lines = []
+    for line in (markdown or "").replace("\r\n", "\n").split("\n"):
+        line = re.sub(r"^\s*#+\s*", "", line)  # "## Title" -> "Title"
+        line = re.sub(r"^(\s*)[-*]\s+", "\\1\u2022  ", line)  # "- item" -> a bullet point
+        line = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m[1] or m[2], line)  # bold
+        line = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", line)  # [text](link) -> text
+        lines.append(line.replace("`", ""))
+    return "\n".join(lines).strip()
+
+
+def notes_dialog(parent, heading, notes):
+    """A message box with a heading and a scrollable block of text (the release notes)."""
+    owner = parent.winfo_toplevel()
+    win = tk.Toplevel(owner)
+    win.configure(bg=BG)
+    win.resizable(False, False)
+    win.transient(owner)
+    body = ClassicWindow(win, "Master Converter", win.destroy, resizable=False,
+                         taskbar=False).body
+    tk.Label(body, text=heading, bg=BG, font=("Tahoma", 9, "bold"), justify="left",
+             anchor="w").pack(fill="x", padx=12, pady=(12, 6))
+    box = tk.Frame(body, bg=BG)
+    box.pack(padx=12)
+    text = tk.Text(box, width=58, height=14, wrap="word", font=FONT, bg="white", fg="black",
+                   relief="sunken", bd=2, padx=6, pady=4, highlightthickness=0)
+    sb = FlatScrollbar(box, command=text.yview)
+    sb.config(height=1)  # stretch to the text box's height instead of setting it
+    text.config(yscrollcommand=sb.set)
+    text.insert("1.0", notes or "(no release notes)")
+    text.config(state="disabled")  # read only
+    text.pack(side="left")
+    sb.pack(side="left", fill="y")
+    row = tk.Frame(body, bg=BG)
+    row.pack(pady=(10, 12))
+    ok = xp_button(row, "OK", win.destroy)
+    ok.pack()
+    win.bind("<Return>", lambda e: win.destroy())
+    win.bind("<Escape>", lambda e: win.destroy())
+    win.update_idletasks()
+    x = owner.winfo_rootx() + (owner.winfo_width() - win.winfo_reqwidth()) // 2
+    y = owner.winfo_rooty() + (owner.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(f"+{max(0, x)}+{max(0, y)}")
+    win.focus_force()
+    ok.focus_set()
+    win.grab_set()
+    play_sound("done")
+    win.wait_window()
+
+
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
                              "Master Converter", "settings.json")
 
@@ -518,7 +599,7 @@ def video_thumb(src, duration, box=320):
     return None
 
 
-# ---- sound (the Voice tab) ----
+# ---- sound (the Audio tab) ----
 AUDIO_FORMATS = {"MP3": ".mp3", "WAV": ".wav", "M4A (AAC)": ".m4a", "FLAC": ".flac",
                  "OGG (Vorbis)": ".ogg", "OPUS": ".opus", "AIFF": ".aiff", "WMA": ".wma"}
 AUDIO_CODECS = {".mp3": "libmp3lame", ".wav": "pcm_s16le", ".m4a": "aac", ".flac": "flac",
@@ -1261,6 +1342,16 @@ def status_label(parent, text):
     label.pack(side="left", fill="x", expand=True)
     label.bind("<Configure>", lambda e: label.config(wraplength=max(40, e.width - 4)))
     return label
+
+
+def go_to_file(path):
+    """Right-click > Go to file: open the original file's folder in Explorer with the file
+    highlighted (like Windows' "Open file location")."""
+    if os.path.exists(path):
+        reveal(os.path.dirname(os.path.abspath(path)), [os.path.abspath(path)])
+    else:
+        dialog("Master Converter", f"{os.path.basename(path)} isn't there anymore "
+               "(moved or deleted).", sound="error")
 
 
 def reveal_all(paths):
@@ -2241,7 +2332,7 @@ class App(BaseTk):
         self.page = None
         self.tabs.add("images", "Images")
         self.tabs.add("videos", "Videos")
-        self.tabs.add("voice", "Voice")
+        self.tabs.add("voice", "Audio")
         self.tabs.add("gif", "GIF Maker")
         self.bind("<Control-Tab>", lambda e: self.tabs.step(1))
         self.bind("<Control-Shift-Tab>", lambda e: self.tabs.step(-1))
@@ -2336,6 +2427,124 @@ class App(BaseTk):
         self.color_dropdown_lists()  # the same selection blue from the start
         if load_settings().get("dark"):  # dark mode chosen last time
             self.set_theme(True)
+        self.after(800, self.startup_update_tasks)
+
+    # ---- updates ----
+    def startup_update_tasks(self):
+        """Just updated? Show what's new. Then look for a newer version in the background."""
+        self.show_update_notes()
+        self.check_for_updates()
+
+    def show_update_notes(self):
+        info = load_settings().get("just_updated")
+        if not info:
+            return
+        save_settings(just_updated=None)  # show it once
+        if info.get("version") != APP_VERSION:
+            return  # the update didn't go through: nothing to announce
+        notes_dialog(self, f"Master Converter was updated to version {APP_VERSION}.",
+                     plain_notes(info.get("notes")))
+
+    def check_for_updates(self):
+        """Ask GitHub, off the main thread, whether there's a newer version. Skipped when
+        running from the source code (no version) or if turned off in the settings file."""
+        if parse_version(APP_VERSION) is None or not load_settings().get("check_updates", True):
+            return
+        found = queue.Queue()
+        threading.Thread(target=lambda: found.put(fetch_latest_release()), daemon=True).start()
+
+        def wait():
+            try:
+                latest = found.get_nowait()
+            except queue.Empty:
+                self.after(200, wait)
+                return
+            if latest:
+                self.offer_update(*latest)
+        self.after(200, wait)
+
+    def offer_update(self, version, notes, url):
+        if parse_version(version) <= parse_version(APP_VERSION):
+            return  # up to date
+        if load_settings().get("skipped_version") == version:
+            return  # they chose to skip this one
+        choice = dialog("Update available",
+                        f"Master Converter {version} is available.\nYou have version {APP_VERSION}.",
+                        ("Update now", "Remind me later", "Skip this version"), sound="done")
+        if choice == "Update now":
+            self.install_update(version, notes, url)
+        elif choice == "Skip this version":
+            save_settings(skipped_version=version)
+        # "Remind me later" (or closing the box): ask again next time the app starts
+
+    def install_update(self, version, notes, url):
+        """Download the new installer (with a progress bar), run it silently - no questions:
+        it installs over this version where it is - and close; the installer starts the new
+        version, which then shows the release notes."""
+        win = tk.Toplevel(self)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(self)
+        body = ClassicWindow(win, "Updating", lambda: None, resizable=False, taskbar=False).body
+        label = tk.Label(body, text=f"Downloading Master Converter {version}...", bg=BG,
+                         font=FONT, anchor="w")
+        label.pack(fill="x", padx=12, pady=(12, 6))
+        bar = ClassicProgress(body, maximum=100)
+        bar.pack(fill="x", padx=12, pady=(0, 14))
+        tk.Frame(body, bg=BG, width=320, height=0).pack()
+        win.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - win.winfo_reqwidth()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - win.winfo_reqheight()) // 3
+        win.geometry(f"+{max(0, x)}+{max(0, y)}")
+        win.focus_force()
+        win.grab_set()
+        dst = os.path.join(tempfile.gettempdir(), f"MasterConverter-Setup-{version}.exe")
+        events = queue.Queue()
+
+        def download():  # off the main thread
+            import urllib.request
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "MasterConverter"})
+                with urllib.request.urlopen(req, timeout=30) as r, open(dst + ".part", "wb") as f:
+                    total, got = int(r.headers.get("Content-Length") or 0), 0
+                    while chunk := r.read(256 * 1024):
+                        f.write(chunk)
+                        got += len(chunk)
+                        if total:
+                            events.put(("frac", got / total))
+                os.replace(dst + ".part", dst)
+                events.put(("done", None))
+            except Exception as e:
+                events.put(("error", str(e)))
+
+        def poll():
+            try:
+                while True:
+                    kind, value = events.get_nowait()
+                    if kind == "frac":
+                        bar.config(value=value * 100)
+                    elif kind == "done":
+                        label.config(text="Installing the update...")
+                        bar.config(value=100)
+                        win.update()
+                        # remembered for the new version to show once it's running
+                        save_settings(just_updated={"version": version, "notes": notes})
+                        # silent install: no wizard, same place, same shortcuts; it closes
+                        # this app if it's still running and starts the new one when done
+                        subprocess.Popen([dst, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+                                          "/CLOSEAPPLICATIONS"])
+                        self.after(300, self.destroy)
+                        return
+                    else:
+                        win.destroy()
+                        dialog("Master Converter", f"The update couldn't be downloaded:\n{value}",
+                               sound="error")
+                        return
+            except queue.Empty:
+                pass
+            self.after(100, poll)
+        threading.Thread(target=download, daemon=True).start()
+        self.after(100, poll)
 
     # ---- light / dark mode ----
     def toggle_theme(self):
@@ -2629,12 +2838,13 @@ class App(BaseTk):
         return self.file_info(self.files[i])
 
     def context_menu(self, i, x, y):
-        """Right-click on a file (either view): Rename / Duplicate / Remove."""
+        """Right-click on a file (either view): Rename / Duplicate / Go to file / Remove."""
         if self.busy:
             return
         menu = PopupMenu(self)  # drawn by the app: the same thin frame in light and dark
         menu.add_command(label="Rename", command=lambda: self.rename_item(i))
         menu.add_command(label="Duplicate", command=lambda: self.duplicate_item(i))
+        menu.add_command(label="Go to file", command=lambda: go_to_file(self.files[i]))
         menu.add_separator()
         menu.add_command(label="Remove", command=self.remove_files)  # same as the button
         try:
@@ -2799,7 +3009,7 @@ class App(BaseTk):
 
 class VideoPanel(tk.Frame):
     """The Videos tab: the files (details or thumbnails), options, and ffmpeg doing the work
-    on a worker thread. The Voice tab reuses all of it, replacing only the parts marked
+    on a worker thread. The Audio tab reuses all of it, replacing only the parts marked
     "what's particular to videos" below."""
     NOUN, EXTS = "video", VIDEO_EXTS  # "3 video(s) selected", which files are accepted
     COLUMNS = [("name", "Name", 150, 90), ("length", "Length", 60, 50),
@@ -2867,7 +3077,7 @@ class VideoPanel(tk.Frame):
         self.outlabel.grid(row=row, column=1, sticky="w", padx=6, pady=2)
         app.btn(opt, "Browse...", self.pick_outdir).grid(row=row, column=2)
 
-    # ---- what's particular to videos (the Voice tab replaces these) ----
+    # ---- what's particular to videos (the Audio tab replaces these) ----
     def build_options(self, opt, app):
         tk.Label(opt, text="Convert to:", bg=BG, font=FONT).grid(row=0, column=0, sticky="w")
         self.fmt = tk.StringVar(value="MP4")
@@ -3067,12 +3277,13 @@ class VideoPanel(tk.Frame):
                 f"Size: {fmt_size(it['bytes']) if it['bytes'] is not None else 'unknown'}"]
 
     def context_menu(self, i, x, y):
-        """Right-click on a file (either view): Rename / Duplicate / Remove."""
+        """Right-click on a file (either view): Rename / Duplicate / Go to file / Remove."""
         if self.busy:
             return
         menu = PopupMenu(self)  # drawn by the app: the same thin frame in light and dark
         menu.add_command(label="Rename", command=lambda: self.rename_item(i))
         menu.add_command(label="Duplicate", command=lambda: self.duplicate_item(i))
+        menu.add_command(label="Go to file", command=lambda: go_to_file(self.items[i]["path"]))
         menu.add_separator()
         menu.add_command(label="Remove", command=self.remove_files)  # same as the button
         try:
@@ -3241,7 +3452,7 @@ class VideoPanel(tk.Frame):
 
 
 class AudioPanel(VideoPanel):
-    """The Voice tab: converts sound between formats (MP3, WAV, M4A, FLAC, OGG, OPUS, AIFF,
+    """The Audio tab: converts sound between formats (MP3, WAV, M4A, FLAC, OGG, OPUS, AIFF,
     WMA) - from audio files, or takes the sound out of videos. Everything but the options,
     the ffmpeg command and what the columns / thumbnails show comes from VideoPanel."""
     NOUN, EXTS = "audio file", VOICE_EXTS
@@ -4135,7 +4346,9 @@ class GifPanel(tk.Frame):
                     self.show_btn.config(state="normal")
                     size = App.fmt_size(os.path.getsize(dst))
                     self.status.config(text=f"Saved {os.path.basename(dst)} ({size}).")
-                    play_sound("done")  # no message box here, so just the chime
+                    # a message box with the done chime, like the other tabs
+                    dialog("Master Converter", f"Made {os.path.basename(dst)} ({size}).",
+                           sound="done")
                 elif cancelled:
                     self.progress.config(value=0)
                     self.status.config(text="Cancelled.")

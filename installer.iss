@@ -24,6 +24,10 @@ UninstallDisplayIcon={app}\{#MyAppExe}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; in-app updates run this silently: close the running app first, but don't let Windows
+; restart it - the [Run] entry below starts the new version (just once)
+CloseApplications=yes
+RestartApplications=no
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
@@ -43,3 +47,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; after a silent install (the in-app update), start the new version straight away
+Filename: "{app}\{#MyAppExe}"; Flags: nowait; Check: WizardSilent

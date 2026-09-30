@@ -2,6 +2,7 @@
 
 A free, offline Windows app for converting **images, videos and sound** - and making **GIFs** -
 with a classic Windows XP look. Everything runs on your own PC: no accounts, no ads.
+(The only time it goes online is to check this page for a newer version - see *Updates* below.)
 
 ## Features
 
@@ -18,7 +19,7 @@ with a classic Windows XP look. Everything runs on your own PC: no accounts, no 
 - Quality, size (4K ... 360p), frame rate, and "remove sound" options.
 - Live progress per file, and a Cancel button.
 
-### Voice
+### Audio
 - Convert sound between **MP3, WAV, M4A (AAC), FLAC, OGG, OPUS, AIFF, WMA** - or take the sound
   out of a video.
 - Quality (**Original** keeps each file's own quality, copying it untouched when the format
@@ -50,6 +51,13 @@ with a classic Windows XP look. Everything runs on your own PC: no accounts, no 
 
 To uninstall: **Settings -> Apps -> Installed apps -> Master Converter -> Uninstall**.
 
+### Updates
+When the app starts, it checks this project's Releases page for a newer version. If there is one,
+it offers **Update now**, **Remind me later** or **Skip this version**. *Update now* downloads and
+installs the new version by itself, restarts the app and shows what's new. The check only reads
+the public list of releases - nothing about you or your files is sent. To turn it off, set
+`"check_updates": false` in `%APPDATA%\Master Converter\settings.json`.
+
 > **About the "Windows protected your PC" warning:** Windows shows it for any program from an
 > unknown publisher. It doesn't mean the app is unsafe - the app just isn't digitally signed
 > (that needs a paid code-signing certificate).
@@ -75,7 +83,10 @@ python master_converter.py
 **With GitHub (automatic):** push a tag such as `v1.0.0` (or create a release with that tag on
 GitHub). The workflow in `.github/workflows/release.yml` builds the installer in the cloud and
 attaches it to the release - watch the **Actions** tab; it takes about 5 minutes.
-For a new version, publish a new tag: `v1.0.1`, `v1.1.0`, ...
+For a new version, publish a new tag: `v1.0.1`, `v1.1.0`, ... The tag's number becomes the app's
+version, and every installed copy offers the update the next time it starts; the release's
+description is what users see as "what's new" after updating. (Builds made with `build.bat` or run
+from the source code have no version, so they never check for updates.)
 
 ## What's in this repository
 

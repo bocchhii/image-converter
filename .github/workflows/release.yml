@@ -18,6 +18,16 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt pyinstaller
+      - name: Put the version into the app
+        # the app compares its own version with the newest release to offer updates:
+        # APP_VERSION = "dev" becomes e.g. APP_VERSION = "2.2.0" (from the tag v2.2.0)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $code = Get-Content master_converter.py -Raw -Encoding utf8
+          $code = $code -replace '(?m)^APP_VERSION = "dev"', "APP_VERSION = `"$version`""
+          Set-Content master_converter.py $code -NoNewline -Encoding utf8
+          Select-String -Path master_converter.py -Pattern '^APP_VERSION = '
       - name: Build the exe
         run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name MasterConverter --icon icon.ico --add-data "icon.ico;." --add-data "icon.png;." --collect-all tkinterdnd2 --collect-all pillow_heif --collect-all imageio_ffmpeg --collect-all rawpy --collect-all resvg_py master_converter.py
       - name: Install Inno Setup
