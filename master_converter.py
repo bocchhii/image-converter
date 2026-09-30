@@ -217,7 +217,7 @@ THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role:
         "#1f4fae": "#008C89",  # ... its edge
         "#a9c4f5": "#B5EFEB",  # ... its shine
     }, {
-        "box": {"#ffffff": "#F3FEFE"},  # box backgrounds: a very light cyan
+        "box": {"#ffffff": "#FFF0F4"},  # box backgrounds: a very light pink
         "edge": {"#ffffff": "#F8DDDE", "#000000": "#704049"},  # 3D edges: light / darkest
     }),
     "jungle": ({  # Windows 98's Jungle desktop theme (colours taken from the reference picture)
@@ -247,6 +247,7 @@ THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role:
         "#1f4fae": "#600000",  # ... its edge
         "#a9c4f5": "#FFA858",  # ... its shine
     }, {
+        "box": {"#ffffff": "#FBF5E6"},  # box backgrounds: a very light khaki
         "edge": {"#ffffff": "#D8C592", "#000000": "#281602"},  # 3D edges: light / darkest
     }),
 }
@@ -261,19 +262,37 @@ THEME_LOOK = {
 }
 
 
+CUSTOM_INACTIVE = (("#808080", "#A8A8A8"), "#C3C3C3")  # the Custom theme's inactive title bar
+
+
 def caption_inactive():
-    """The current theme's inactive title bar colours (left, right)."""
-    return THEME_LOOK[THEME][0]
+    """The current theme's inactive title bar colours (left, right) - in the Custom theme,
+    whatever its appearance, Windows 98's grey."""
+    return CUSTOM_INACTIVE[0] if CUSTOM_SELECT else THEME_LOOK[THEME][0]
 
 
 def title_text(active):
-    """The current theme's title text colour."""
+    """The current theme's title text colour. The Custom theme's: white or black, whichever
+    reads on its title bar colour (a white bar: black text); inactive, light grey."""
+    if CUSTOM_SELECT:
+        return CUSTOM_SELECT[1] if active else CUSTOM_INACTIVE[1]
     return THEME_LOOK[THEME][1][0 if active else 1]
 
 
+CUSTOM_SELECT = None  # the Custom theme's selection (its title bar colour), while it's in use
+
+
 def select_colors():
-    """The current theme's selection: (background, text)."""
-    return THEME_LOOK[THEME][2]
+    """The current theme's selection: (background, text) - the Custom theme's is its title
+    bar colour."""
+    return CUSTOM_SELECT or THEME_LOOK[THEME][2]
+
+
+def selection_for(color):
+    """A selection in this colour: (the colour, white or black text - whichever reads).
+    (The black is #010101: the dark theme turns plain black text light.)"""
+    r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    return color.upper(), "#010101" if 0.299 * r + 0.587 * g + 0.114 * b > 150 else "#FFFFFF"
 _ROLES = ("text", "box", "edge", "face")
 _TO = {t: {r: {k: v.lower() for k, v in {**any_, **roles.get(r, {})}.items()} for r in _ROLES}
        for t, (any_, roles) in THEME_COLORS.items()}  # all lowercase, so both ways look up alike
@@ -382,18 +401,27 @@ _SYSTEM_DARK = {  # Tk's own default colours ("SystemButtonText"...) in dark mod
     "bg": DARK_FACE, "background": DARK_FACE}
 SYSTEM_COLORS = {  # the Tk default colours each theme changes (the others keep Windows' own)
     "dark": _SYSTEM_DARK,
-    "pink": {"disabledforeground": "#DE4B65", "selectcolor": "#F3FEFE",  # greyed text; tick boxes
+    "pink": {"disabledforeground": "#DE4B65", "selectcolor": "#FFF0F4",  # greyed text; tick boxes
              "selectbackground": "#A1DAD1", "selectforeground": "#000000"},  # selected text
-    "jungle": {"disabledforeground": "#D2BE90",
+    "jungle": {"disabledforeground": "#D2BE90", "selectcolor": "#FBF5E6",
                "selectbackground": "#800000", "selectforeground": "#FFA040"},
 }
 _SYSTEM_OPTS = list(dict.fromkeys(o for colors in SYSTEM_COLORS.values() for o in colors))
+
+
+def system_colors(theme):
+    """The Tk default colours a theme changes, with its selection as it is now (the Custom
+    theme's follows its title bar)."""
+    colors = dict(SYSTEM_COLORS.get(theme, {}))
+    if CUSTOM_SELECT or "selectbackground" in colors:
+        colors["selectbackground"], colors["selectforeground"] = select_colors()
+    return colors
 _system_colors = {}  # (widget, option) -> the Tk default it had before, to put back
 
 
 def retheme(widget, old, new):
     """Switch one existing widget (and a canvas's drawings) from theme old to theme new."""
-    system = SYSTEM_COLORS.get(new, {})
+    system = system_colors(new)
 
     def convert(val, role):
         return theme_color(written_color(val, role, old), role, new)
@@ -1335,17 +1363,253 @@ class ClassicProgress(tk.Canvas):
         self.delete("all")
         self.create_line(0, H - 1, 0, 0, W - 1, 0, fill=EDGE_SHADOW)  # sunken edge
         self.create_line(1, H - 1, W - 1, H - 1, W - 1, 0, fill=EDGE_LIGHT)
+        color = CUSTOM_SELECT[0] if CUSTOM_SELECT else self.COLOR  # (Custom: its title bar's)
         for i in range(n):
             bx = x0 + i * step
             self.create_rectangle(bx, 1 + self.PAD, bx + self.BLOCK, H - 1 - self.PAD,
-                                  fill=self.COLOR, outline="")
+                                  fill=color, outline="")
+
+
+_FONTS = {}
+
+
+def font_of(font, widget):
+    """A tkfont.Font for a font description (kept, so each is made once per Tk)."""
+    key = (id(widget.tk), str(font))
+    if key not in _FONTS:
+        _FONTS[key] = tkfont.Font(widget, font=font)
+    return _FONTS[key]
+
+
+def engraved_colors():
+    """(light, dark) of greyed-out text: the theme's 3D edge colours, like Windows 98. (In
+    the dark theme its edges are too close to the face: there, like the other themes' look -
+    readable text with a soft copy 1 px down and right - a mid grey over a near-black.)"""
+    if THEME == "dark":
+        return "#636363", "#1A1A1A"
+    return theme_color(EDGE_LIGHT, "edge"), theme_color(EDGE_SHADOW, "edge")
+
+
+def draw_engraved(canvas, x, y, text, font=FONT, underline=-1, anchor="nw", width=0,
+                  justify="left"):
+    """Greyed-out text the way Windows 98 draws it, engraved into the face: the text in the
+    edges' shadow colour over a copy in their light colour 1 px down and right. (width:
+    wrap at that many pixels; underline only with anchor "nw".)"""
+    f = font_of(font, canvas)
+    for d, color in zip((1, 0), engraved_colors()):
+        canvas.create_text(x + d, y + d, text=text, font=font, fill=color, anchor=anchor,
+                           width=width, justify=justify)
+        if 0 <= underline < len(text) and anchor == "nw":
+            ux = x + d + f.measure(text[:underline])
+            uy = y + d + f.metrics("ascent") + 1
+            canvas.create_rectangle(ux, uy, ux + f.measure(text[underline]), uy + 1,
+                                    fill=color, outline="")
+
+
+class EngravedLabel(tk.Canvas):
+    """A greyed-out note such as "(not used by PNG)", its text engraved into the face like
+    Windows 98's greyed-out text. Works like a tk.Label for its text, anchor ("center" or
+    "w"), wraplength and justify, and is the same size. Given another text colour with fg
+    (a red error message), it shows plain text in that colour instead."""
+    GREYS = ("#666666", "#888888", "#999999")  # (the greys the notes used to be: engraved)
+
+    def __init__(self, parent, text="", font=FONT, anchor="center", wraplength=0,
+                 justify="left", fg=None):
+        super().__init__(parent, bg=BG, highlightthickness=0, bd=0, width=0, height=0)
+        self.opts = {"text": text, "font": font, "anchor": anchor, "wraplength": wraplength,
+                     "justify": justify, "fg": fg}
+        self.bind("<Configure>", lambda e: self.draw(resize=False))
+        self.draw()
+
+    def configure(self, cnf=None, **kw):
+        kw = {**(cnf or {}), **kw}
+        for key in list(kw):
+            if key in self.opts:
+                self.opts[key] = kw.pop(key)
+        if kw:
+            super().configure(kw)
+        self.draw()
+    config = configure
+
+    def cget(self, key):
+        return self.opts[key] if key in self.opts else super().cget(key)
+
+    def draw(self, resize=True):
+        self.delete("all")
+        o = self.opts
+        text = str(o["text"])
+        if resize:  # a label's size, so the notes sit where the old labels did
+            if not text:
+                tk.Canvas.configure(self, width=0, height=0)
+                return
+            ref = tk.Label(self, text=text, font=o["font"], wraplength=o["wraplength"],
+                           justify=o["justify"])
+            tk.Canvas.configure(self, width=ref.winfo_reqwidth(), height=ref.winfo_reqheight())
+            ref.destroy()
+        if not text:
+            return
+        f = font_of(o["font"], self)
+        empty = tk.Label(self, text="x", font=o["font"])  # the space a label leaves round
+        inset = (empty.winfo_reqwidth() - f.measure("x")) // 2  # its text
+        top = (empty.winfo_reqheight() - f.metrics("linespace")) // 2
+        empty.destroy()
+        width = int(o["wraplength"] or 0)
+        if o["anchor"] == "w":
+            x, anchor = inset, "nw"
+        else:
+            x, anchor = max(self.winfo_width(), int(self.cget("width"))) // 2, "n"
+        fg = o["fg"]
+        if fg and _norm(fg) not in self.GREYS:  # (an error: plain, in its own colour)
+            self.create_text(x, top, text=text, font=o["font"], fill=fg, anchor=anchor,
+                             width=width, justify=o["justify"])
+        else:
+            draw_engraved(self, x, top, text, o["font"], anchor=anchor, width=width,
+                          justify=o["justify"])
+
+
+class RaisedEdge(tk.Frame):
+    """A raised 3D edge in the theme's own edge colours - 2 px light top / left, 1 px shadow
+    and 2 px dark bottom / right, then 1 px of face - the same edge as the tabs and the page
+    border. (Tk's own raised edge works its shadow out from the face colour, so it doesn't
+    match them in themes with coloured edges.) Put the contents in .inner. It can also be
+    shown pressed in, like a pushed button."""
+
+    def __init__(self, parent, **kw):
+        super().__init__(parent, bg=EDGE_DARK, **kw)  # outer bottom / right
+        self.pressed = False
+        self.top_left = tk.Frame(self, bg=EDGE_LIGHT)  # outer top / left
+        self.top_left.pack(fill="both", expand=True, padx=(0, 2), pady=(0, 2))
+        self.bottom_right = tk.Frame(self.top_left, bg=EDGE_SHADOW)  # inner bottom / right
+        self.bottom_right.pack(fill="both", expand=True, padx=(2, 0), pady=(2, 0))
+        self.inner_top_left = tk.Frame(self.bottom_right, bg=BG)  # inner top / left
+        self.inner_top_left.pack(fill="both", expand=True, padx=(0, 1), pady=(0, 1))
+        self.inner = tk.Frame(self.inner_top_left, bg=BG)
+        self.inner.pack(fill="both", expand=True, padx=(1, 0), pady=(1, 0))
+
+    def set_pressed(self, pressed):
+        """Pressed in: shadow and dark top / left, light bottom / right (like Tk's sunken)."""
+        if pressed == self.pressed:
+            return
+        self.pressed = pressed
+        colors = ((EDGE_LIGHT, EDGE_SHADOW, BG, EDGE_DARK) if pressed else
+                  (EDGE_DARK, EDGE_LIGHT, EDGE_SHADOW, BG))
+        for frame, color in zip((self, self.top_left, self.bottom_right, self.inner_top_left),
+                                colors):
+            tk.Frame.configure(frame, bg=color)
+
+    def redraw(self):
+        """Colours again after a theme change (the pressed look's colours aren't the ones
+        the frames were made with)."""
+        pressed, self.pressed = self.pressed, not self.pressed
+        self.set_pressed(pressed)
+
+
+class ClassicButton(RaisedEdge):
+    """The app's raised button (Add, Convert, OK...): a flat Tk button inside a RaisedEdge,
+    so it's shaded like the tabs in every theme. It pushes in while it's held down, and
+    works like a tk.Button: its options (text, state, command...) and invoke() are the
+    button's; pack / grid / place it like any widget."""
+
+    def __init__(self, parent, **kw):
+        super().__init__(parent)
+        # (1 px of face round it: where Tk's button had its focus ring, so the size is the same)
+        self.button = tk.Button(self.inner, relief="flat", bd=0, highlightthickness=0, bg=BG,
+                                activebackground="#F5F3E8", **kw)
+        self.button.pack(fill="both", expand=True, padx=1, pady=1)
+        self.button.classic = self
+        tags = list(self.button.bindtags())  # after Tk's own button bindings: follow its
+        tags.insert(tags.index("Button") + 1, "ClassicButton")  # pressed / released state
+        self.button.bindtags(tuple(tags))
+        for seq in ("<ButtonPress-1>", "<ButtonRelease-1>", "<Enter>", "<Leave>"):
+            self.button.bind_class("ClassicButton", seq, ClassicButton._follow)
+        self.engraved = None  # greyed out: its text engraved, drawn over the button
+        self.engrave()
+
+    @staticmethod
+    def _follow(e):
+        classic = getattr(e.widget, "classic", None)
+        if classic is not None:
+            classic.follow()
+
+    def follow(self):
+        """Look pushed in while Tk's button is (held down with the mouse over it)."""
+        try:
+            down = str(self.button.cget("relief")) == "sunken"
+            self.set_pressed(down)
+            tk.Frame.configure(self.inner, bg="#F5F3E8" if down else BG)  # (its pressed face)
+        except tk.TclError:  # (closed by its own click)
+            pass
+
+    def redraw(self):
+        super().redraw()
+        self.follow()
+        self.engrave()
+
+    def engrave(self):
+        """Greyed out, a text button shows its text engraved into the face, like Windows 98
+        (Tk would just draw it grey): drawn on a canvas over the button while it's off."""
+        try:
+            off = (str(self.button.cget("state")) == "disabled"
+                   and not str(self.button.cget("image")))
+        except tk.TclError:
+            return
+        if not off:
+            if self.engraved is not None:
+                self.engraved.place_forget()
+            return
+        if self.engraved is None:
+            self.engraved = tk.Canvas(self.inner, bg=BG, highlightthickness=0, bd=0)
+            self.engraved.bind("<Configure>", lambda e: self.draw_engraved())
+        # (the button's own area: inside the 1 px of face round it)
+        self.engraved.place(x=1, y=1, relwidth=1, relheight=1, width=-2, height=-2)
+        self.draw_engraved()
+
+    def draw_engraved(self):
+        c = self.engraved
+        c.delete("all")
+        text, font = str(self.button.cget("text")), self.button.cget("font")
+        f = font_of(font, c)
+        draw_engraved(c, (c.winfo_width() - f.measure(text)) // 2,
+                      (c.winfo_height() - f.metrics("linespace")) // 2, text, font,
+                      int(self.button.cget("underline")))
+
+    # its own options, not the button's: the cursor (What's This? sets and puts back each
+    # widget's), and the colours (a theme change recolours the button on its own)
+    OWN = {"cursor", "bg", "background", "fg", "foreground", "activebackground",
+           "activeforeground", "disabledforeground", "highlightbackground", "highlightcolor"}
+
+    def configure(self, cnf=None, **kw):
+        kw = {**(cnf or {}), **kw}
+        own = {k: kw.pop(k) for k in list(kw) if k in self.OWN}
+        if own:
+            tk.Frame.configure(self, own)
+        if not kw:
+            return None
+        out = self.button.configure(kw)
+        if {"state", "text", "font", "underline", "image"} & set(kw):
+            self.engrave()
+        return out
+    config = configure
+
+    def cget(self, key):
+        return tk.Frame.cget(self, key) if key in self.OWN else self.button.cget(key)
+    __getitem__ = cget
+
+    def __setitem__(self, key, value):
+        self.button.configure({key: value})
+
+    def invoke(self):
+        return self.button.invoke()
+
+    def focus_set(self):  # the keyboard goes to the button (Enter / Space press it)
+        self.button.focus_set()
+    focus = focus_set
 
 
 def xp_button(parent, text, cmd, bold=False):
     """The app's raised button (Add, Convert, OK...)."""
-    return tk.Button(parent, text=text, command=cmd, bg=BG, relief="raised", bd=3,
-                     font=(FONT[0], FONT[1], "bold" if bold else "normal"),
-                     activebackground="#F5F3E8", padx=8)
+    return ClassicButton(parent, text=text, command=cmd, padx=8,
+                         font=(FONT[0], FONT[1], "bold" if bold else "normal"))
 
 
 # ---- sounds: original XP-style chimes, made by the app itself (no sound files shipped) ----
@@ -1513,11 +1777,10 @@ class PopupMenu:
         top.withdraw()
         top.overrideredirect(True)
         top.transient(self.parent)
-        # raised 3D edge drawn exactly like the buttons' (xp_button: relief raised, bd 3), so
-        # the light and shadow sides are just as thick
-        edge = tk.Frame(top, bg=BG, relief="raised", bd=3)
+        # the same raised 3D edge as the buttons (RaisedEdge), light and shadow just as thick
+        edge = RaisedEdge(top)
         edge.pack()
-        self.body = tk.Frame(edge, bg=BG)
+        self.body = tk.Frame(edge.inner, bg=BG)
         self.body.pack(padx=1, pady=1)
         self.min_width = min_width
         self.fill()
@@ -1777,7 +2040,11 @@ class WhatsThis:
         if e.widget is self.chrome.bar:  # the title bar (? again, X...): out of help mode
             self.stop()
             return None  # ... and the click still reaches its button
-        text = self.lookup(e.widget, e.x_root, e.y_root)
+        widget = e.widget  # (a click inside a button is the button's)
+        while isinstance(widget, tk.Misc) and not isinstance(widget, ClassicButton):
+            widget = widget.master
+        widget = widget if isinstance(widget, ClassicButton) else e.widget
+        text = self.lookup(widget, e.x_root, e.y_root)
         self.stop()
         if text:
             self.show(text, e.x_root, e.y_root)
@@ -2476,7 +2743,10 @@ class TrackBar(tk.Canvas):
         text = str(self.get())
         half = tkfont.Font(font=FONT).measure(text) / 2
         tx = min(max(cx, half + 1), self.L - half - 1)
-        self.create_text(tx, 1, text=text, anchor="n", font=FONT, fill=ink)
+        if self.enabled:
+            self.create_text(tx, 1, text=text, anchor="n", font=FONT, fill=ink)
+        else:  # greyed out: engraved, like Windows 98's greyed-out text
+            draw_engraved(self, round(tx), 1, text, anchor="n")
         # the groove: sunken, 4 px tall, through the thumb's middle
         x0, x1, gy = self.X0 - 2, self.X1 + 2, ty + 6
         self.create_line(x0, gy + 3, x0, gy, x1, gy, fill=EDGE_SHADOW)  # grey top / left
@@ -2502,9 +2772,13 @@ class TrackBar(tk.Canvas):
 
 
 class FlatScrollbar(tk.Canvas):
-    """Vertical scrollbar in the modern flat Windows style: light-grey track, small chevron
-    arrows without button boxes, a flat grey thumb that darkens on hover and while dragged.
+    """Vertical scrollbar drawn like Windows 98's: raised 3D arrow buttons with solid black
+    triangles (pressed: flat, the triangle shifted), a raised thumb, and a checkered track
+    of the face and the light edge colour (in the grey themes; the others, whose schemes
+    have a scrollbar colour of their own, a plain track) - the part of the track being
+    held down turns dark, like Windows'. Drawn in the theme's own colours.
     Drop-in for tk.Scrollbar: command=widget.yview, and the widget's yscrollcommand=sb.set."""
+    CHECKERED = ("98", "xp")  # the themes with Windows 98's checkered track
     W, ARROW = 17, 17
     TRACK, THUMB, THUMB_HOVER, THUMB_DOWN = "#EFEFEF", "#CCCCCC", "#A6A6A6", "#606060"
     ARROW_FG, ARROW_HOVER_BG = "#5F5F5F", "#DADADA"
@@ -2553,22 +2827,69 @@ class FlatScrollbar(tk.Canvas):
             self.hot = part
             self.draw()
 
+    _checkers = {}  # (width, colours) -> a tall checkered picture, made once
+
+    def checker(self, a, b):
+        """A checkered picture of colours a and b, as tall as a screen (drawn from the top,
+        the canvas shows as much as it needs)."""
+        key = (id(self.tk), self.W, a, b, self.winfo_screenheight())
+        if key not in self._checkers:
+            h = self.winfo_screenheight()
+            ca, cb = (tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in (a, b))
+            img = Image.new("RGB", (self.W, h))
+            img.putdata([ca if (x + y) % 2 == 0 else cb for y in range(h) for x in range(self.W)])
+            self._checkers[key] = ImageTk.PhotoImage(img, master=self)
+        return self._checkers[key]
+
+    def raised_box(self, x0, y0, x1, y1):
+        """A raised Windows 98 box over [x0, x1) x [y0, y1): face, light inside the top /
+        left, shadow inside and dark outside the bottom / right."""
+        self.create_rectangle(x0, y0, x1, y1, fill=BG, outline="")
+        self.create_line(x0 + 1, y1 - 2, x0 + 1, y0 + 1, x1 - 2, y0 + 1, fill=EDGE_LIGHT)
+        self.create_line(x0 + 1, y1 - 2, x1 - 2, y1 - 2, x1 - 2, y0, fill=EDGE_SHADOW)
+        self.create_line(x0, y1 - 1, x1 - 1, y1 - 1, x1 - 1, y0 - 1, fill=EDGE_DARK)
+
     def draw(self):
         self.delete("all")
-        W, H = self.winfo_width(), self.winfo_height()
-        for part, y0 in (("up", 0), ("down", H - self.ARROW)):
-            if self.held == part or self.hot == part:  # arrow area lights up under the mouse
-                self.create_rectangle(0, y0, W, y0 + self.ARROW,
-                                      fill=self.THUMB_DOWN if self.held == part else self.ARROW_HOVER_BG,
-                                      outline="")
-            fg = "white" if self.held == part else self.ARROW_FG
-            cx, cy, d = W / 2, y0 + self.ARROW / 2, (-1 if part == "up" else 1)
-            self.create_line(cx - 4, cy - 2 * d, cx, cy + 2 * d, cx + 4, cy - 2 * d, fill=fg, width=1)
-            self.create_line(cx - 3, cy - 2 * d, cx, cy + 1 * d, cx + 3, cy - 2 * d, fill=fg, width=1)
+        W, H, A = self.winfo_width(), self.winfo_height(), self.ARROW
+        # the track
+        face, light = theme_color(BG), theme_color(EDGE_LIGHT, "edge")
+        if THEME in self.CHECKERED:
+            self.create_image(0, A, image=self.checker(face, light), anchor="nw")
+        else:
+            self.create_rectangle(0, A, W, H - A, fill=self.TRACK, outline="")
         y0, y1 = self.thumb_box()
-        color = (self.THUMB_DOWN if self.held == "thumb" else
-                 self.THUMB_HOVER if self.hot == "thumb" else self.THUMB)
-        self.create_rectangle(1, y0, W - 1, y1, fill=color, outline="")
+        y0, y1 = round(y0), round(y1)
+        if self.held in ("page_up", "page_down"):  # the part held down: dark
+            top, bottom = (A, y0) if self.held == "page_up" else (y1, H - A)
+            if bottom > top:
+                if THEME in self.CHECKERED:  # dark checks from the top of the part, then
+                    # the light ones again from its bottom (on the same checks as the rest)
+                    dark = self.checker(theme_color(EDGE_DARK, "edge"),
+                                        theme_color(EDGE_SHADOW, "edge"))
+                    self.create_image(0, top - (top - A) % 2, image=dark, anchor="nw")
+                    self.create_image(0, bottom + (bottom - A) % 2,
+                                      image=self.checker(face, light), anchor="nw")
+                else:
+                    self.create_rectangle(0, top, W, bottom, outline="",
+                                          fill=theme_color(EDGE_SHADOW, "edge"))
+        # the thumb, then the arrow buttons over the ends
+        self.raised_box(0, y0, W, y1)
+        for part, top in (("up", 0), ("down", H - A)):
+            down = self.held == part
+            if down:  # pressed: flat, a 1 px shadow round it
+                self.create_rectangle(0, top, W, top + A, fill=BG, outline="")
+                self.create_line(0, top, W - 1, top, W - 1, top + A - 1, 0, top + A - 1, 0, top,
+                                 fill=EDGE_SHADOW)
+            else:
+                self.raised_box(0, top, W, top + A)
+            # a solid black triangle, 7 px wide and 4 tall, in the middle (1 px down / right
+            # while pressed, like a pushed button)
+            cx, cy = W // 2 + down, top + A // 2 + down
+            for row in range(4):
+                y = cy - 2 + row if part == "up" else cy + 1 - row
+                self.create_rectangle(cx - row, y, cx + row + 1, y + 1, fill="#000000",
+                                      outline="")
 
     def press(self, e):
         part = self.part_at(e.y)
@@ -3368,7 +3689,7 @@ class App(BaseTk):
         self.quality = tk.IntVar(value=90)
         self.qscale = TrackBar(opt, self.quality, from_=0, to=100, length=200)
         self.qscale.grid(row=1, column=1, sticky="w", padx=6)
-        self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
+        self.qnote = EngravedLabel(opt)
         # pinned beside the slider, outside the grid, so it can't shift the Browse button
         self.qnote.place(in_=self.qscale, relx=1.0, rely=1.0, x=6, y=-4, anchor="sw")
         # for ICO the slider is swapped for a list of icon sizes (in the same spot)
@@ -3565,12 +3886,17 @@ class App(BaseTk):
         self.apply_look(*theme_look(settings, choice))
 
     def apply_look(self, appearance, palette, custom_color):
-        """Show an appearance (see THEME_COLORS) with a title bar palette."""
-        global CAPTION_ACTIVE
+        """Show an appearance (see THEME_COLORS) with a title bar palette. In the Custom
+        theme, everything highlighted (selected files, menu items under the mouse, dropdown
+        lists, selected text) is in the title bar's colour."""
+        global CAPTION_ACTIVE, CUSTOM_SELECT
         self.palette_name, self.custom_color = palette, custom_color
         CAPTION_ACTIVE = palette_colors(palette, custom_color)
         self.chrome._grad = None  # its gradient picture is made again in the new colours
-        self.set_theme(appearance)
+        select = (selection_for(CAPTION_ACTIVE[0]) if self.theme_choice == CUSTOM_THEME
+                  else None)
+        changed, CUSTOM_SELECT = select != CUSTOM_SELECT, select
+        self.set_theme(appearance, force=changed)  # (same appearance: the highlights still change)
         self.chrome.draw()
         if hasattr(self, "palette_var"):  # Settings shows what's in use
             self.palette_var.set(palette)
@@ -3588,10 +3914,11 @@ class App(BaseTk):
         appearance = next(k for k, v in APPEARANCE_NAMES.items() if v == name)
         self.save_custom(appearance, self.palette_name, self.custom_color)
 
-    def set_theme(self, theme):
-        """Switch the whole app to another appearance (see THEME_COLORS)."""
+    def set_theme(self, theme, force=False):
+        """Switch the whole app to another appearance (see THEME_COLORS). force: colour
+        everything again even if it's the same one (the Custom theme's highlight changed)."""
         global THEME, DARK_MODE
-        if theme == THEME:
+        if theme == THEME and not force:
             return
         old, THEME, DARK_MODE = THEME, theme, theme == "dark"
         dark = DARK_MODE  # from here on, every colour given to Tk goes through theme_color()
@@ -3609,10 +3936,10 @@ class App(BaseTk):
                     ("*TCombobox*Listbox.selectBackground", select_colors()[0]),
                     ("*TCombobox*Listbox.selectForeground", select_colors()[1])):
                 self.option_add(pattern, value)
-        else:
-            names = {"disabledforeground": "*disabledForeground", "selectcolor": "*selectColor",
-                     "selectbackground": "*selectBackground", "selectforeground": "*selectForeground"}
-            for opt, value in SYSTEM_COLORS.get(theme, {}).items():
+        names = {"disabledforeground": "*disabledForeground", "selectcolor": "*selectColor",
+                 "selectbackground": "*selectBackground", "selectforeground": "*selectForeground"}
+        for opt, value in system_colors(theme).items():
+            if opt in names and not (dark and opt not in ("selectbackground", "selectforeground")):
                 self.option_add(names[opt], value)
         widgets = all_widgets(self)
         for w in widgets:  # everything that already exists
@@ -3628,6 +3955,10 @@ class App(BaseTk):
                 w.draw_hint()
             elif isinstance(w, GifPanel):
                 w.draw_strip()
+            elif isinstance(w, RaisedEdge):
+                w.redraw()
+            elif isinstance(w, (EngravedLabel, TrackBar)):
+                w.draw()
         self.chrome.draw()
         self.color_dropdown_lists()
         self.update_quality_state()  # the ICO size list's height differs between the modes
@@ -4032,14 +4363,18 @@ class App(BaseTk):
         row.pack(fill="x", pady=(4, 0))
         folder = app_folder()
         xp_button(row, "Open folder", lambda: os.startfile(folder)).pack(side="right", padx=(6, 0))
-        where = tk.Entry(row, font=FONT, relief="sunken", bd=2, bg="white")
-        where.insert(0, folder)
-        # read-only, but still selectable and copyable (Ctrl+C); not state="readonly", whose
-        # own background colour wouldn't follow dark mode
-        where.bind("<Key>", lambda e: None if e.state & 0x4 else "break")
-        where.pack(side="left", fill="x", expand=True)
-        tk.Label(box, text="To move it, uninstall it and install it again into another folder.",
-                 bg=BG, fg="#666666", font=FONT, anchor="w").pack(fill="x", pady=(4, 0))
+        # shown like Windows 98's greyed-out text box - it can't be changed: sunken (shadow
+        # and dark top / left, light and face bottom / right) on the face, its text engraved
+        edge = tk.Frame(row, bg=EDGE_LIGHT)  # outer bottom / right
+        edge.pack(side="left", fill="x", expand=True)
+        inner = edge
+        for bg, pad in ((EDGE_SHADOW, (0, 1)), (BG, (1, 0)), (EDGE_DARK, (0, 1)), (BG, (1, 0))):
+            f = tk.Frame(inner, bg=bg)  # outer top / left, inner bottom / right, inner top /
+            f.pack(fill="both", expand=True, padx=pad, pady=pad)  # left, then the inside
+            inner = f
+        EngravedLabel(inner, text=folder, anchor="w").pack(fill="x", pady=1)
+        EngravedLabel(box, text="To move it, uninstall it and install it again into another "
+                      "folder.", anchor="w").pack(fill="x", pady=(4, 0))
 
         # sound effects on / off
         box = tk.LabelFrame(page, text=" Sound effects ", bg=BG, font=FONT, padx=8, pady=6)
@@ -4094,8 +4429,8 @@ class App(BaseTk):
                                        relief="sunken")
         self.palette_strip.pack(fill="x", pady=(8, 0))
         self.palette_strip.bind("<Configure>", lambda e: self.draw_palette_strip())
-        tk.Label(box, text="Changes here are saved as the Custom theme.", bg=BG,
-                 fg="#666666", font=FONT, anchor="w").pack(fill="x", pady=(6, 0))
+        EngravedLabel(box, text="Changes here are saved as the Custom theme.",
+                      anchor="w").pack(fill="x", pady=(6, 0))
 
         # Window and Help side by side, as two equal boxes
         pair = tk.Frame(page, bg=BG)
@@ -4125,8 +4460,8 @@ class App(BaseTk):
         tk.Checkbutton(box, text="Show the ? button in the title bar",
                        variable=self.help_var, command=self.toggle_whats_this, bg=BG,
                        activebackground=BG, font=FONT).pack(anchor="w")
-        tk.Label(box, text="(What's This? - it explains what you click)", bg=BG,
-                 fg="#666666", font=FONT).pack(anchor="w", padx=(22, 0))
+        EngravedLabel(box, text="(What's This? - it explains what you click)").pack(
+            anchor="w", padx=(22, 0))
 
         # the version, and checking for a newer one
         box = tk.LabelFrame(page, text=" Updates ", bg=BG, font=FONT, padx=8, pady=8)
@@ -4141,8 +4476,7 @@ class App(BaseTk):
         self.version_label.pack(side="left")
         self.update_btn = xp_button(row, "Check for updates", self.check_updates_now)
         self.update_btn.pack(side="right")
-        self.update_status = tk.Label(box, text="", bg=BG, fg="#666666", font=FONT, anchor="w",
-                                      justify="left")
+        self.update_status = EngravedLabel(box, anchor="w")  # (errors: plain red)
         self.update_status.pack(fill="x", pady=(6, 0))
         # wraps only if the box is too narrow for its (one-line) messages
         self.update_status.bind("<Configure>", lambda e: self.update_status.config(
@@ -4207,25 +4541,42 @@ class App(BaseTk):
     PROFILE_URL = "https://github.com/bocchhii"
 
     def build_about(self, parent):
-        """The About page, all centred: the name, what the app is for, and at the bottom who
-        made it, with a link to their GitHub profile."""
-        page = tk.Frame(parent, bg=BG, padx=12, pady=120)
-        tk.Label(page, text="Master Converter", bg=BG, font=(FONT[0], 42, "bold"),
-                 justify="center").pack(pady=(34, 14))
-        tk.Label(page, text="Do you have an image you want to convert but aren't sure how? Are "
-                            "you concerned about the safety of online file conversion sites? I "
-                            "designed this tool to solve this issue.",
-                 bg=BG, font=(FONT[0], 12), justify="center", wraplength=380).pack()
-        # at the bottom: who made it, and where to find more of their tools
-        bottom = tk.Frame(page, bg=BG)
-        bottom.pack(side="bottom", pady=(0, 110))
-        tk.Label(bottom, text="Developer: bocchi the old", bg=BG,
-                 font=(FONT[0], FONT[1], "bold"), justify="center").pack()
-        tk.Label(bottom, text="For more future tools, check out my profile:", bg=BG, font=FONT,
-                 justify="center").pack(pady=(0, 0))
-        link = tk.Label(bottom, text=self.PROFILE_URL, bg=BG, fg="#0000EE", cursor="hand2",
+        """The About page, all centred like a Windows 98 About box: the logo, the name and
+        version, what the app is for, then (below an etched line) who made it, with a link to
+        their GitHub profile. It stays in the middle of the page at any window size."""
+        page = tk.Frame(parent, bg=BG)
+        box = tk.Frame(page, bg=BG)
+        box.place(relx=0.5, rely=0.47, anchor="center")
+
+        def etched_line(pady):  # grey over white, like the line under the menu bar
+            line = tk.Frame(box, bg=BG, width=400)
+            line.pack(pady=pady)
+            tk.Frame(line, bg=EDGE_SHADOW, height=1, width=400).pack()
+            tk.Frame(line, bg=EDGE_LIGHT, height=1, width=400).pack()
+        try:
+            logo = Image.open(resource_path("icon.png")).convert("RGBA")
+            self._about_logo = ImageTk.PhotoImage(logo.resize((128, 128), Image.LANCZOS))
+            tk.Label(box, image=self._about_logo, bg=BG).pack(padx=(0, 21))  # (a touch left)
+        except Exception:
+            pass  # (no icon file: just the name)
+        tk.Label(box, text="Master Converter", bg=BG, font=(FONT[0], 42, "bold"),
+                 justify="center").pack(pady=(6, 0))
+        version = (f"Version {APP_VERSION}" if parse_version(APP_VERSION)
+                   else "Version: dev (running from the source code)")
+        EngravedLabel(box, text=version).pack(pady=(2, 0))
+        etched_line((14, 14))
+        tk.Label(box, text="Do you have an image you want to convert but aren't sure how?\n"
+                           "Are you concerned about the safety of online file conversion sites?\n\n"
+                           "I designed this tool to solve this issue.",
+                 bg=BG, font=(FONT[0], 10, "bold"), justify="center", wraplength=380).pack()
+        etched_line((14, 10))
+        # who made it, and where to find more of their tools
+        EngravedLabel(box, text="Developer: bocchi the old").pack()
+        EngravedLabel(box, text="For more future tools, check out my profile:").pack(
+            pady=(4, 0))
+        link = tk.Label(box, text=self.PROFILE_URL, bg=BG, fg="#0000EE", cursor="hand2",
                         font=(FONT[0], FONT[1], "underline"), justify="center")
-        link.pack()
+        link.pack(pady=(2, 0))
         link.bind("<ButtonRelease-1>", lambda e: self.open_profile())
         return page
 
@@ -4694,7 +5045,7 @@ class VideoPanel(tk.Frame):
         self.quality = tk.IntVar(value=80)  # (the slider stops at 0, 10 ... 100)
         self.qscale = TrackBar(opt, self.quality, from_=0, to=100, length=200)
         self.qscale.grid(row=1, column=1, sticky="w", padx=6)
-        self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
+        self.qnote = EngravedLabel(opt)
         self.qnote.place(in_=self.qscale, relx=1.0, rely=1.0, x=6, y=-4, anchor="sw")
 
         tk.Label(opt, text="Size:", bg=BG, font=FONT).grid(row=2, column=0, sticky="w")
@@ -4709,7 +5060,7 @@ class VideoPanel(tk.Frame):
         self.fps_cb = ttk.Combobox(row, textvariable=self.fps, values=VIDEO_FPS,
                                    state="readonly", width=8)
         self.fps_cb.pack(side="left", padx=(4, 0))
-        self.snote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
+        self.snote = EngravedLabel(opt)
         self.snote.place(in_=row, relx=1.0, rely=0.5, x=6, anchor="w")
 
         self.save_to_row(opt, app, 3)
@@ -5076,7 +5427,7 @@ class AudioPanel(VideoPanel):
         self.bitrate_cb = ttk.Combobox(opt, textvariable=self.bitrate, values=AUDIO_BITRATES,
                                        state="readonly", width=10)
         self.bitrate_cb.grid(row=1, column=1, sticky="w", padx=6, pady=2)
-        self.qnote = tk.Label(opt, text="", bg=BG, fg="#888888", font=FONT)
+        self.qnote = EngravedLabel(opt)
         self.qnote.place(in_=self.bitrate_cb, relx=1.0, rely=0.5, x=6, anchor="w")
 
         tk.Label(opt, text="Sample rate:", bg=BG, font=FONT).grid(row=2, column=0, sticky="w")
@@ -5333,8 +5684,8 @@ class GifPanel(tk.Frame):
 
         bar = tk.Frame(box, bg=BG)
         bar.pack(fill="x", pady=(6, 0))
-        self.play_btn = tk.Button(bar, image=self.icon_play, command=self.toggle_play, bg=BG,
-                                  relief="raised", bd=3, activebackground="#F5F3E8", width=30)
+        self.play_btn = ClassicButton(bar, image=self.icon_play, command=self.toggle_play,
+                                      width=30)
         self.play_btn.pack(side="left", fill="y")
         # sunken like the preview screen; the play button stretches to the same height
         self.strip = tk.Canvas(bar, height=self.STRIP_H - 2 * self.STRIP_BD, bg="white",
