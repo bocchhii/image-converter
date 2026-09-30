@@ -55,9 +55,12 @@ To uninstall: **Settings -> Apps -> Installed apps -> Master Converter -> Uninst
 
 ### Updates
 When the app starts, it checks this project's Releases page for a newer version. If there is one,
-it offers **Update now**, **Remind me later** or **Skip this version**. *Update now* downloads and
-installs the new version by itself, restarts the app and shows what's new. The check only reads
-the public list of releases - nothing about you or your files is sent. To turn it off, set
+it offers **Update now**, **Not now** or **Skip this version**. *Update now* downloads and
+installs the new version by itself, restarts the app and shows what's new. *Not now* puts an
+update button in the title bar to install it later (and asks again next time); *Skip this
+version* doesn't ask about that version again. Any time, **Settings -> Updates** shows your
+version and can check for a newer one. The check only reads the public list of releases -
+nothing about you or your files is sent. To turn the check at start off, set
 `"check_updates": false` in `%APPDATA%\Master Converter\settings.json`.
 
 > **About the "Windows protected your PC" warning:** Windows shows it for any program from an

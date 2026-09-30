@@ -368,6 +368,64 @@ def fetch_latest_release():
     return (version, data.get("body") or "", url) if url and parse_version(version) else None
 
 
+def run_installer_after_exit(setup):
+    """Start the downloaded installer - silently, over this version - but only once this app
+    has completely closed.
+    Why wait: the installed .exe is a one-file bundle, so two processes run it - a small
+    launcher (which unpacks the app to a temp folder) and the app itself. If the installer
+    starts while they're still running, its "close running apps" step (Windows' Restart
+    Manager) catches the launcher half-way through closing and leaves it stuck, holding the
+    .exe open; the silent installer then can't replace the file and quietly gives up - the
+    app closes, and reopens as the old version. So a small hidden helper waits for the app
+    and its launcher to exit (ending the launcher if it's stuck - all it has left to do is
+    delete its temp folder, which the helper then does), and only then runs the installer.
+    The installer logs to %TEMP%\\MasterConverter-update.log."""
+    args = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS",
+            "/LOG=" + os.path.join(tempfile.gettempdir(), "MasterConverter-update.log")]
+    launcher = 0
+    if getattr(sys, "frozen", False):  # the launcher: our parent, running the same .exe
+        try:
+            import ctypes
+            from ctypes import wintypes
+            k = ctypes.windll.kernel32
+            h = k.OpenProcess(0x1000, False, os.getppid())  # PROCESS_QUERY_LIMITED_INFORMATION
+            if h:
+                buf, size = ctypes.create_unicode_buffer(1024), wintypes.DWORD(1024)
+                if k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                    if os.path.normcase(buf.value) == os.path.normcase(sys.executable):
+                        launcher = os.getppid()
+                k.CloseHandle(h)
+        except Exception:
+            launcher = 0
+    q = lambda s: "'" + str(s).replace("'", "''") + "'"  # noqa: E731 - a PowerShell string
+    unpacked = getattr(sys, "_MEIPASS", "")
+    script = "\r\n".join([
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        f"Wait-Process -Id {os.getpid()} -Timeout 60",  # the app: closing right now
+        f"$launcher = {launcher}",
+        "if ($launcher) {",
+        "    Wait-Process -Id $launcher -Timeout 15",  # normally gone within a second or two
+        "    $p = Get-Process -Id $launcher",
+        f"    if ($p -and $p.Path -eq {q(sys.executable)}) {{",  # stuck: end it and tidy up
+        "        Stop-Process -Id $launcher -Force; Start-Sleep -Milliseconds 500",
+        f"        if ({q(unpacked)}) {{ Remove-Item -LiteralPath {q(unpacked)} -Recurse -Force }}",
+        "    }",
+        "}",
+        "Start-Sleep -Milliseconds 300",
+        f"Start-Process -FilePath {q(setup)} -ArgumentList "
+        + ",".join(q(a) for a in args[:-1]) + "," + q('"' + args[-1] + '"'),
+    ])
+    helper = os.path.join(tempfile.gettempdir(), "MasterConverter-update.ps1")
+    try:
+        with open(helper, "w", encoding="utf-8-sig") as f:
+            f.write(script)
+        subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                          "-WindowStyle", "Hidden", "-File", helper],
+                         creationflags=0x08000000 | 0x00000200)  # no window, own group
+    except Exception:  # no PowerShell?: start the installer straight away, as before
+        subprocess.Popen([setup] + args)
+
+
 def plain_notes(markdown):
     """GitHub release notes are written in Markdown; show them as tidy plain text."""
     lines = []
@@ -3301,27 +3359,30 @@ class App(BaseTk):
         if parse_version(version) <= parse_version(APP_VERSION):
             return  # up to date
         if load_settings().get("skipped_version") == version:
-            self.show_update_button(version, notes, url)  # skipped: no box, just the button
-            return
+            return  # skipped: not asked again (Settings > Updates can still install it)
         choice = dialog("Update available",
                         f"Master Converter {version} is available.\nYou have version {APP_VERSION}.",
-                        ("Update now", "Remind me later", "Skip this version"), sound="done")
+                        ("Update now", "Not now", "Skip this version"), sound="done")
         if choice == "Update now":
             self.install_update(version, notes, url)
         elif choice == "Skip this version":
-            save_settings(skipped_version=version)
-            self.show_update_button(version, notes, url)
-        # "Remind me later" (or closing the box): ask again next time the app starts
+            save_settings(skipped_version=version)  # no button, and not asked again
+        else:  # Not now (or the box closed): the update button in the title bar, for later -
+            self.show_update_button(version, notes, url)  # and asked again next time
 
     def show_update_button(self, version, notes, url):
-        """The green arrow in the title bar: a skipped update can still be installed from it."""
+        """The update button in the title bar (after "Not now"): install the update from it
+        whenever you like. Its box's Not now keeps the button there."""
         def clicked():
             choice = dialog("Update available",
                             f"Master Converter {version} is available.\nYou have version {APP_VERSION}.",
                             ("Update now", "Not now"))
             if choice == "Update now":
                 self.install_update(version, notes, url)
-        self.chrome.set_update_button(clicked)
+        try:
+            self.chrome.set_update_button(clicked)
+        except tk.TclError:
+            pass  # the app was closed while the update check was finishing
 
     def install_update(self, version, notes, url):
         """Download the new installer (with a progress bar), run it silently - no questions:
@@ -3357,7 +3418,7 @@ class App(BaseTk):
                         f.write(chunk)
                         got += len(chunk)
                         if total:
-                            events.put(("frac", got / total))
+                            events.put(("frac", (got, total)))
                 os.replace(dst + ".part", dst)
                 events.put(("done", None))
             except Exception as e:
@@ -3368,18 +3429,18 @@ class App(BaseTk):
                 while True:
                     kind, value = events.get_nowait()
                     if kind == "frac":
-                        bar.config(value=value * 100)
+                        got, total = value
+                        bar.config(value=got / total * 100)
+                        label.config(text=f"Downloading Master Converter {version}...   "
+                                          f"{got / 1048576:.0f} of {total / 1048576:.0f} MB")
                     elif kind == "done":
                         label.config(text="Installing the update...")
                         bar.config(value=100)
                         win.update()
                         # remembered for the new version to show once it's running
                         save_settings(just_updated={"version": version, "notes": notes})
-                        # silent install: no wizard, same place, same shortcuts; it closes
-                        # this app if it's still running and starts the new one when done
-                        subprocess.Popen([dst, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
-                                          "/CLOSEAPPLICATIONS"])
-                        self.after(300, self.destroy)
+                        run_installer_after_exit(dst)
+                        self.destroy()
                         return
                     else:
                         win.destroy()
@@ -4033,6 +4094,8 @@ class App(BaseTk):
                             ("Update now", "Not now"), sound="done")
             if choice == "Update now":
                 self.install_update(version, notes, url)
+            else:  # Not now: the update button in the title bar, for later
+                self.show_update_button(version, notes, url)
         else:
             self.update_status.config(text=f"You have the newest version ({APP_VERSION}).",
                                       fg="#666666")
@@ -5802,6 +5865,11 @@ class GifPanel(tk.Frame):
 
 
 if __name__ == "__main__":
+    # Programs started from here (the update's installer, and through it the new version)
+    # must start fresh: a PyInstaller app hands its children variables saying "your files
+    # are unpacked in my temp folder" - a new Master Converter started by the installer
+    # would look for them there after this app had closed and deleted them, and never start.
+    os.environ["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
     if sys.platform == "win32":
         try:  # lets Windows show our icon on the taskbar instead of Python's
             import ctypes
