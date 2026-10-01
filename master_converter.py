@@ -147,7 +147,8 @@ THEME = "xp"  # the theme the widgets are in now (they're made in "xp", then swi
 DARK_MODE = False  # THEME == "dark"
 DARK_FACE, DARK_BOX, DARK_TEXT = "#353535", "#1E1E1E", "#E8E8E8"
 THEME_NAMES = {"98": "Windows 98", "xp": "Windows 98 Ivory", "dark": "Windows 98 Dark",
-               "pink": "Windows 98 Pink", "jungle": "Windows 98 Jungle"}
+               "pink": "Windows 98 Pink", "jungle": "Windows 98 Jungle",
+               "vapor": "Windows 98 Vapor", "mono": "Windows 98 Black and White"}
 DEFAULT_THEME = "98"
 THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role: {...}})
     "xp": ({}, {}),
@@ -250,6 +251,78 @@ THEME_COLORS = {  # theme -> ({written colour: its colour in this theme}, {role:
         "box": {"#ffffff": "#FBF5E6"},  # box backgrounds: a very light khaki
         "edge": {"#ffffff": "#D8C592", "#000000": "#281602"},  # 3D edges: light / darkest
     }),
+    "vapor": ({  # lavender and violet, vaporwave style (colours taken from the reference picture)
+        "#ece9d8": "#DCB2FE",  # window / button face (BG): lavender
+        "#f5f3e8": "#E6C8FE",  # pressed button face
+        "#8e8c82": "#B06AF8",  # 3D edges' shadow: purple
+        "#efefef": "#EAD5FE",  # scrollbar track
+        "#ebe8d7": "#CFA0FB",  # under the menu bar's line: the face, a touch darker
+        "#f7f6f0": "#EAD5FD",  # the lists' scrollbar trough
+        "#ffffe1": "#F3E4FF",  # hover tooltip: pale lavender
+        "#999999": "#A585E6",  # greyed-out text
+        "#808080": "#A484E5",  # ... (the right-click menu's)
+        "#cccccc": "#D3A6FD",  # scrollbar thumb
+        "#a6a6a6": "#C394FA",  # ... under the mouse
+        "#606060": "#7A4FE8",  # ... held down / ruler ticks
+        "#dadada": "#EFDDFF",  # scrollbar arrow under the mouse
+        "#5f5f5f": "#5A3FD0",  # scrollbar arrows
+        "#b0b0b0": "#C9A0FA",  # picture box border
+        "#a0a0a0": "#BE92F8",  # timeline lines
+        "#e4e4e4": "#F1E2FF",  # picture still loading
+        "#d8d8d8": "#E9D3FE",  # filmstrip still loading
+        "#888888": "#8B6FD8",  # hint text
+        "#666666": "#5A3FC0",  # grey text
+        "#c00000": "#C0004E",  # red messages: a raspberry red that reads on lavender
+        "#0000ee": "#3B29F6",  # links: the title bar's blue-violet
+        "#7da2ce": "#9C7BF8",  # a picture box under the mouse
+        "#245edc": "#6F3DFF",  # the dragged selection rectangle
+        "#5a8be0": "#A02CF4",  # GIF Maker's playhead
+        "#1f4fae": "#5A26E8",  # ... its edge
+        "#a9c4f5": "#E6B8FF",  # ... its shine
+    }, {
+        "text": {"#000000": "#3A2BC4"},  # text: indigo, not black
+        "box": {"#ffffff": "#F7EEFF", "#000000": "#3A2BC4"},  # boxes: very pale lavender;
+        # black shapes (the title buttons' symbols, arrows, ticks): indigo like the text
+        "edge": {"#ffffff": "#F6F0FF", "#000000": "#5524E0"},  # 3D edges: light / darkest
+    }),
+    "mono": ({  # black and white, like Windows on a monochrome screen (a grey only where
+        # something has to look greyed out). (Colours a hair off pure black / white are
+        # still black / white to the eye: each colour here must come from just one.)
+        "#ece9d8": "#FEFEFE",  # window / button face (BG): white
+        "#f5f3e8": "#FDFDFD",  # pressed button face
+        "#8e8c82": "#FCFCFD",  # 3D edges' shadow: white, so bottom / right edges look just
+        # like the top / left ones (black would make them a line thicker)
+        "#efefef": "#FCFCFC",  # scrollbar track (drawn checkered, see FlatScrollbar)
+        "#ebe8d7": "#020202",  # under the menu bar's line: black
+        "#f7f6f0": "#FBFBFB",  # the lists' scrollbar trough
+        "#ffffe1": "#FAFAFA",  # hover tooltip: white
+        "#999999": "#818181",  # greyed-out text: grey
+        "#808080": "#7F7F7F",  # ... (the right-click menu's)
+        "#cccccc": "#F9F9F9",  # scrollbar thumb
+        "#a6a6a6": "#F8F8F8",  # ... under the mouse
+        "#606060": "#030303",  # ... held down / ruler ticks
+        "#dadada": "#F7F7F7",  # scrollbar arrow under the mouse
+        "#5f5f5f": "#040404",  # scrollbar arrows
+        "#b0b0b0": "#050505",  # picture box border
+        "#a0a0a0": "#060606",  # timeline lines
+        "#e4e4e4": "#F6F6F6",  # picture still loading
+        "#d8d8d8": "#F5F5F5",  # filmstrip still loading
+        "#888888": "#7E7E7E",  # hint text: grey
+        "#666666": "#070707",  # grey text: black
+        "#c00000": "#080808",  # red messages: black (they say what went wrong)
+        "#0000ee": "#090909",  # links: black, underlined
+        "#7da2ce": "#0A0A0A",  # a picture box under the mouse
+        "#245edc": "#0B0B0B",  # the dragged selection rectangle
+        "#5a8be0": "#0C0C0C",  # GIF Maker's playhead
+        "#1f4fae": "#0D0D0D",  # ... its edge
+        "#a9c4f5": "#F4F4F4",  # ... its shine
+        "#9a9a9a": "#7D7D7D",  # parts of the filmstrip left out
+        "#303030": "#0E0E0E",  # timeline numbers
+    }, {
+        # 3D edges: the light side is black too - white wouldn't show on the white face, so
+        # buttons, tabs and boxes get a full black outline, like monochrome Windows'
+        "edge": {"#ffffff": "#0F0F0F"},
+    }),
 }
 # what each theme's title bars and selections look like: the inactive title bar (left,
 # right), the title text (active, inactive), and a selection's background and text
@@ -259,6 +332,8 @@ THEME_LOOK = {
     "dark": (("#808080", "#A8A8A8"), ("#FFFFFF", "#D4D0C8"), ("#316AC5", "#FFFFFF")),
     "pink": (("#00B8A8", "#F18EA1"), ("#FFFFFF", "#00544C"), ("#A1DAD1", "#000000")),
     "jungle": (("#7D7040", "#7D7040"), ("#FFA040", "#903018"), ("#800000", "#FFA040")),
+    "vapor": (("#D365FE", "#ECC0FE"), ("#FFFFFF", "#F8EEFF"), ("#6F3DFF", "#FFFFFF")),
+    "mono": (("#FFFFFF", "#FFFFFF"), ("#FFFFFF", "#000000"), ("#000000", "#FFFFFF")),
 }
 
 
@@ -321,6 +396,21 @@ def written_color(color, role="face", theme=None):
     return _FROM[theme][role].get(_norm(color), color) if isinstance(color, str) else color
 
 
+def thin_shadow():
+    """The top / left of a 1 px sunken edge: the 3D shadow colour - but in Black and White,
+    where the shadow is white (so edges look the same on all sides), black."""
+    return EDGE_DARK if THEME == "mono" else EDGE_SHADOW
+
+
+def untranslated(color, role):
+    """color as it is, in the current theme: the theme changes some colours given to Tk
+    (black shapes, say) - one of those is nudged by 1, so it's shown as given."""
+    c = _norm(color)
+    if THEME == "xp" or c not in _TO[THEME][role]:
+        return color
+    return "#%06X" % (int(c[1:], 16) ^ 1)
+
+
 def themed(color, role="face"):
     """A colour for the current theme - for pictures drawn with Pillow, which Tk doesn't see."""
     return theme_color(color, role)
@@ -366,7 +456,39 @@ _orig_create = tk.Canvas._create
 _orig_itemconfigure = tk.Canvas.itemconfigure
 
 
+def _mono_box(widget, opts):
+    """Black and White: a sunken box (2 px, Windows' dark top / left and white bottom /
+    right - the white can't show on white) becomes a plain 1 px black line all round, with
+    1 px of face round it so it's the same size. The widget remembers it was sunken, to be
+    put back in other themes (see App.set_theme)."""
+    if not isinstance(opts, dict) or opts.get("relief") != "sunken":
+        return opts
+    bd = opts.get("bd", opts.get("borderwidth"))
+    if str(bd) != "2":
+        return opts
+    widget._sunken = int(str(opts.get("highlightthickness", 0) or 0))  # (its own, to put back)
+    out = {k: v for k, v in opts.items() if k not in ("bd", "borderwidth")}
+    out.update(relief="solid", bd=1, highlightthickness=1, highlightbackground=BG,
+               highlightcolor=theme_color(BG))  # (a focus ring the face's colour: unseen)
+    return out
+
+
+def mono_boxes(widget, mono):
+    """Switch one existing sunken box to Black and White's plain black line, or back."""
+    try:
+        if mono and str(widget.cget("relief")) == "sunken" and str(widget.cget("bd")) == "2":
+            widget._sunken = int(str(widget.cget("highlightthickness")))
+            widget.configure(relief="solid", bd=1, highlightthickness=1, highlightbackground=BG,
+                             highlightcolor=theme_color(BG))
+        elif not mono and hasattr(widget, "_sunken") and str(widget.cget("relief")) == "solid":
+            widget.configure(relief="sunken", bd=2, highlightthickness=widget._sunken)
+    except (tk.TclError, ValueError):
+        pass
+
+
 def _themed_options(self, cnf, kw=None):  # every widget made or changed
+    if THEME == "mono":
+        cnf, kw = _mono_box(self, cnf), _mono_box(self, kw)
     if THEME != "xp":
         cnf, kw = (_map_opts(o, lambda k: _widget_role(self, k)) for o in (cnf, kw))
     return _orig_options(self, cnf, kw)
@@ -405,6 +527,11 @@ SYSTEM_COLORS = {  # the Tk default colours each theme changes (the others keep 
              "selectbackground": "#A1DAD1", "selectforeground": "#000000"},  # selected text
     "jungle": {"disabledforeground": "#D2BE90", "selectcolor": "#FBF5E6",
                "selectbackground": "#800000", "selectforeground": "#FFA040"},
+    "vapor": {"disabledforeground": "#A585E6", "selectcolor": "#F7EEFF",
+              "selectbackground": "#6F3DFF", "selectforeground": "#FFFFFF",
+              "fg": "#3A2BC4", "foreground": "#3A2BC4", "activeforeground": "#3A2BC4"},
+    "mono": {"disabledforeground": "#808080", "selectcolor": "#FFFFFF",
+             "selectbackground": "#000000", "selectforeground": "#FFFFFF"},
 }
 _SYSTEM_OPTS = list(dict.fromkeys(o for colors in SYSTEM_COLORS.values() for o in colors))
 
@@ -611,7 +738,7 @@ def app_folder():
 
 
 APPEARANCE_NAMES = {"98": "Light grey", "xp": "Ivory", "dark": "Dark grey", "pink": "Pink",
-                    "jungle": "Jungle"}  # Settings
+                    "jungle": "Jungle", "vapor": "Vapor", "mono": "Black and white"}  # Settings
 CUSTOM_THEME = "custom"  # the Theme menu's last choice: your own appearance + title bar
 
 
@@ -928,10 +1055,13 @@ TITLE_PALETTES = {
     "Charcoal": ("#101010", "#4A4A4A"),
     "Teal and pink": ("#00BDBA", "#DC97B8"),  # Windows 98 Pink's
     "Jungle black": ("#000000", "#000000"),  # Windows 98 Jungle's: plain black
+    "Vapor violet": ("#3B29F6", "#DCC2FE"),  # Windows 98 Vapor's
+    "Black": ("#000000", "#000000"),  # Windows 98 Black and White's
 }
 CUSTOM_PALETTE = "Custom..."  # the last choice in the list: pick any colour
 THEME_PALETTE = {"98": "Windows 98 blue", "xp": "Windows 98 blue", "dark": "Windows 98 blue",
-                 "pink": "Teal and pink", "jungle": "Jungle black"}  # unless one's chosen
+                 "pink": "Teal and pink", "jungle": "Jungle black",
+                 "vapor": "Vapor violet", "mono": "Black"}  # unless one's chosen
 
 
 def palette_colors(name, custom_color=None):
@@ -976,8 +1106,8 @@ class ClassicWindow:
         # outside: light-grey top/left, black bottom/right; inside: white top/left, grey bottom/right
         edges = []
         parent = win
-        for bg, padx, pady in ((EDGE_DARK, 0, 0), (BG, (0, 1), (0, 1)), (EDGE_SHADOW, (1, 0), (1, 0)),
-                               (EDGE_LIGHT, (0, 1), (0, 1)), (BG, (1, 0), (1, 0))):
+        for bg, padx, pady in zip(self.border(), (0, (0, 1), (1, 0), (0, 1), (1, 0)),
+                                  (0, (0, 1), (1, 0), (0, 1), (1, 0))):
             f = tk.Frame(parent, bg=bg)
             f.pack(fill="both", expand=True, padx=padx, pady=pady)
             edges.append(f)
@@ -997,8 +1127,16 @@ class ClassicWindow:
         self.bar.bind("<ButtonRelease-1>", self.bar_release)
         self.bar.bind("<Double-Button-1>", self.bar_double)
         self.edges = edges
+        self.border_colors()
         if resizable:  # the border is handled by watching the mouse (see watch_edges)
             self._zone_shown, self._was_down = "", False
+            self._borrowed = {}  # widget -> its own cursor, while it shows a resize one
+            # the moment the mouse moves (not at the next look, up to 30 ms later): the right
+            # cursor, so it never flickers between the arrow and the resize one
+            win.bind("<Motion>", lambda e: None if self._resize else self.follow_pointer(), add="+")
+            # a press on the border starts resizing at once: waiting for the next look missed
+            # a quick press-and-drag (the mouse had already left the border by then)
+            win.bind("<ButtonPress-1>", self.border_press, add="+")
             win.after(100, self.watch_edges)
         win.bind("<FocusIn>", lambda e: self.set_active(True), add="+")
         win.bind("<FocusOut>", lambda e: win.after(30, self.check_active), add="+")
@@ -1008,6 +1146,20 @@ class ClassicWindow:
         else:  # a dialog: hand the keyboard (and the blue title) back to its window when it closes
             win.bind("<Destroy>", lambda e: e.widget is win and self.give_back_focus(), add="+")
             win.after(1, self.stay_above_owner)
+
+    @staticmethod
+    def border():  # the border frames' colours, outside in
+        return [EDGE_DARK, BG, EDGE_SHADOW, EDGE_LIGHT, BG]
+
+    def border_colors(self):
+        """The window border's colours for the theme. Its frames each show on two sides, so
+        the classic 3D border differs top / left from bottom / right; in Black and White it's
+        the same on every side - white outside, then a black line."""
+        colors = self.border()
+        if THEME == "mono":
+            colors[0], colors[2] = BG, EDGE_DARK  # (bottom / right: like the top / left)
+        for frame, color in zip(getattr(self, "edges", ()), colors):
+            tk.Frame.configure(frame, bg=color)
 
     def stay_above_owner(self):
         """Without Windows' title bar, Tk no longer tells Windows who owns a dialog, so it could
@@ -1057,24 +1209,82 @@ class ClassicWindow:
         except Exception:
             pass
 
-    def work_area(self):
-        """Screen area not covered by the taskbar: x, y, w, h."""
+    def work_area(self, point=None):
+        """The area of a screen not covered by the taskbar: x, y, w, h - the screen the window
+        is on (mostly), or the one at point (x, y) on the desktop. With more than one screen,
+        each has its own."""
         try:
             import ctypes
             from ctypes import wintypes
-            r = wintypes.RECT()
-            ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(r), 0)
+
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                            ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+            u = ctypes.windll.user32
+            if point is None:
+                mon = u.MonitorFromWindow(self.hwnd(), 2)  # MONITOR_DEFAULTTONEAREST
+            else:
+                u.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+                mon = u.MonitorFromPoint(wintypes.POINT(*point), 2)
+            mi = MONITORINFO()
+            mi.cbSize = ctypes.sizeof(MONITORINFO)
+            if not u.GetMonitorInfoW(ctypes.c_void_p(mon), ctypes.byref(mi)):
+                raise OSError
+            r = mi.rcWork
             return r.left, r.top, r.right - r.left, r.bottom - r.top
         except Exception:
             return 0, 0, self.win.winfo_screenwidth(), self.win.winfo_screenheight()
 
+    @staticmethod
+    def screen_at(x, y):
+        """Is there a screen at (x, y) on the desktop?"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            u = ctypes.windll.user32
+            u.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+            return bool(u.MonitorFromPoint(wintypes.POINT(x, y), 0))  # MONITOR_DEFAULTTONULL
+        except Exception:
+            return False
+
+    def snap_target(self, px, py):
+        """Where the window would snap, dragged to (px, py): at the top of a screen, ("max",
+        rect) in its middle third, ("tall-left" / "tall-right", rect) in its left / right
+        third; ("left" / "right", rect) at its left / right edge - or None. Only at a
+        screen's outer edges: an edge that leads onto another screen is left free, so the
+        window can be dragged across."""
+        x, y, w, h = self.work_area((px, py))
+        mw = self.min_size[0]
+        edge = 1  # how close counts as "at" the edge
+        free = lambda qx, qy: not self.screen_at(qx, qy)  # noqa: E731 (nothing beyond)
+        left = px <= x + edge and free(x - 3, py)
+        right = px >= x + w - 1 - edge and free(x + w + 2, py)
+        top = py <= y + edge and free(px, y - 3)
+        hw = min(max(w // 2, mw), w)  # half the screen (never below the smallest size)
+        if left:
+            return "left", (x, y, hw, h)
+        if right:
+            return "right", (x + w - hw, y, hw, h)
+        if top:  # the top in three: in its left / right third the window keeps its width
+            # and gets as tall as the screen, at that side; in the middle, maximized
+            ww = min(self.win.winfo_width(), w)
+            if px < x + w / 3:
+                return "tall-left", (x, y, ww, h)
+            if px >= x + w * 2 / 3:
+                return "tall-right", (x + w - ww, y, ww, h)
+            return "max", (x, y, w, h)
+        return None
+
     def toggle_maximize(self):
         if not self.resizable:
             return
-        if self.maximized:
-            self.win.geometry(self.normal_geo)
+        if self.maximized:  # back to a snapped half if it was one, else the size from before
+            self.win.geometry(self._half_geo if getattr(self, "half", False) else self.normal_geo)
         else:
-            self.normal_geo = self.win.geometry()
+            if getattr(self, "half", False):  # (a snapped half keeps its size from before
+                self._half_geo = self.win.geometry()  # the snap, for dragging it out later)
+            else:
+                self.normal_geo = self.win.geometry()
             x, y, w, h = self.work_area()
             self.win.geometry(f"{w}x{h}+{x}+{y}")
         self.maximized = not self.maximized
@@ -1212,15 +1422,29 @@ class ClassicWindow:
 
     def bar_press(self, e):
         kind = self.button_at(e.x, e.y)
+        self._snap = None  # (the screen's work area, while dragged to its top: see bar_drag)
         if kind:
             self.pressed, self.down = kind, True
             self.draw()
-        elif not self.maximized:  # start moving the window
+        elif self.maximized or getattr(self, "half", False):  # dragging it will bring back
+            self._unsnap = (e.x_root, e.y_root, e.x, e.y) if self.resizable else None  # its size
+        else:  # start moving the window
             self._move = (e.x_root - self.win.winfo_x(), e.y_root - self.win.winfo_y())
+            self._before_snap = self.win.geometry()  # the size to go back to if it's snapped
 
     def bar_drag(self, e):
+        unsnap = getattr(self, "_unsnap", None)
+        if unsnap and max(abs(e.x_root - unsnap[0]), abs(e.y_root - unsnap[1])) >= 4:
+            self.drag_out_of_maximized(e, unsnap)
         if self._move:
             self.win.geometry(f"+{e.x_root - self._move[0]}+{e.y_root - self._move[1]}")
+            if self.resizable:  # like Windows 10 / 11: dragged to the screen's left or right
+                # edge, the window will fill that half of it; to the top, all of it - shown
+                # by an outline where it'll go
+                snap = self.snap_target(e.x_root, e.y_root)
+                if snap != self._snap:
+                    self._snap = snap
+                    self.show_outline(snap[1] if snap else None)
         elif self.pressed:  # like a real button: pops back up if the mouse slides off it
             down = self.button_at(e.x, e.y) == self.pressed
             if down != self.down:
@@ -1228,7 +1452,16 @@ class ClassicWindow:
                 self.draw()
 
     def bar_release(self, e):
-        self._move = None
+        self._move, self._unsnap = None, None
+        snap = getattr(self, "_snap", None)
+        if snap:  # let go at a screen edge: the window fills the outline
+            self._snap = None
+            self.show_outline(None)
+            kind, (x, y, w, h) = snap
+            self.normal_geo = self._before_snap  # (un-snapping brings back the old size)
+            self.win.geometry(f"{w}x{h}+{x}+{y}")
+            self.maximized, self.half = kind == "max", kind != "max"
+            self.draw()
         kind, self.pressed = self.pressed, None
         if kind:
             self.draw()
@@ -1236,6 +1469,25 @@ class ClassicWindow:
                 {"close": self.on_close, "min": self.minimize, "max": self.toggle_maximize,
                  "restore": self.toggle_maximize, "update": self.on_update,
                  "help": self.on_help}[kind]()
+
+    def drag_out_of_maximized(self, e, start):
+        """A maximized window's title bar dragged: it goes back to its size from before, under
+        the mouse - the same spot of the title bar stays under it, like Windows 10 / 11 - and
+        carries on being dragged."""
+        self._unsnap, self.half = None, False
+        m = re.match(r"(\d+)x(\d+)", self.normal_geo or "")
+        if not m:
+            return
+        w, h = int(m.group(1)), int(m.group(2))
+        x0, y0, sx, sy = start
+        frac = sx / max(1, self.bar.winfo_width())  # how far across the title bar it was held
+        nx = e.x_root - round(frac * w)
+        ny = e.y_root - sy - (self.bar.winfo_rooty() - self.win.winfo_rooty())
+        self.maximized = False
+        self.win.geometry(f"{w}x{h}+{nx}+{ny}")
+        self.draw()
+        self._move = (e.x_root - nx, e.y_root - ny)
+        self._before_snap = self.normal_geo
 
     def bar_double(self, e):
         if not self.button_at(e.x, e.y):
@@ -1270,24 +1522,71 @@ class ClassicWindow:
         if self._resize:
             if down:
                 self.resize_to(px, py)
-            else:
+            else:  # let go: the window takes the outline's size
                 self._resize = None
+                self.finish_resize()
         else:
-            z = "" if self.maximized or not self.pointer_on_window() else self.zone()
-            if z:
-                u.SetCursor(u.LoadCursorW(None, self.SIZE_CURSORS[z]))
-                if (down or state & 1) and not self._was_down:  # pressed on the border
-                    w = self.win
-                    self._resize = (z, px, py, w.winfo_x(), w.winfo_y(),
-                                    w.winfo_width(), w.winfo_height())
-            elif self._zone_shown:  # just left the border: normal arrow back
-                u.SetCursor(u.LoadCursorW(None, 32512))  # IDC_ARROW
-            if z != self._zone_shown:  # tell Tk the same, so it never sets a different one
-                for f in self.edges:
-                    f.config(cursor=self.TK_CURSORS.get(z, ""))
-            self._zone_shown = z
+            z = self.follow_pointer()
+            if z and (down or state & 1) and not self._was_down:  # pressed on the border
+                w = self.win
+                self._resize = (z, px, py, w.winfo_x(), w.winfo_y(),
+                                w.winfo_width(), w.winfo_height())
         self._was_down = down
         self.win.after(15 if self._resize else 30, self.watch_edges)
+
+    def border_press(self, e):
+        """A press anywhere in the window: on the border, it starts a resize (and not, on the
+        title bar's edge, a move)."""
+        if self._resize or self.maximized:
+            return
+        z = self.zone(e.x_root, e.y_root)
+        if z:
+            w = self.win
+            self._move, self.half = None, False  # (resized: no longer a snapped half)
+            self._resize = (z, e.x_root, e.y_root, w.winfo_x(), w.winfo_y(),
+                            w.winfo_width(), w.winfo_height())
+
+    def follow_pointer(self):
+        """The resize cursor while the mouse is on the border (the arrow back once it's off),
+        and the same for Tk: the border frames, and whatever part of the window the mouse is
+        on - the border's inner pixels are over the title bar or the page, which would
+        otherwise put their own cursor back each time the mouse moves. Returns the border
+        zone the mouse is on ("" if none)."""
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        u.LoadCursorW.argtypes, u.LoadCursorW.restype = [wintypes.HINSTANCE, ctypes.c_void_p], ctypes.c_void_p
+        u.SetCursor.argtypes = [ctypes.c_void_p]
+        try:
+            z = "" if self.maximized or not self.pointer_on_window() else self.zone()
+            under = self.win.winfo_containing(*self.win.winfo_pointerxy()) if z else None
+        except (tk.TclError, KeyError):
+            return ""
+        want = self.TK_CURSORS.get(z, "")
+        if z:
+            u.SetCursor(u.LoadCursorW(None, self.SIZE_CURSORS[z]))
+        elif self._zone_shown:  # just left the border: normal arrow back
+            u.SetCursor(u.LoadCursorW(None, 32512))  # IDC_ARROW
+        if z != self._zone_shown:  # tell Tk the same, so it never sets a different one
+            for f in self.edges:
+                f.config(cursor=want)
+        for w, own in list(self._borrowed.items()):  # off the border, or another part now:
+            if w is not under or not z:  # its own cursor back
+                try:
+                    w.config(cursor=own)
+                except tk.TclError:
+                    pass
+                del self._borrowed[w]
+        if z and under is not None and under not in self.edges:
+            try:
+                if under not in self._borrowed:
+                    self._borrowed[under] = under.cget("cursor")
+                if str(under.cget("cursor")) != want:
+                    under.config(cursor=want)
+            except tk.TclError:
+                pass
+        self._zone_shown = z
+        return z
 
     def pointer_on_window(self):
         """Is the mouse over this window (and not over another window covering it)?"""
@@ -1298,9 +1597,13 @@ class ClassicWindow:
         u.GetCursorPos(ctypes.byref(pt))
         return u.GetAncestor(u.WindowFromPoint(pt), 2) == self.hwnd()  # GA_ROOT
 
-    def zone(self):
+    def zone(self, px=None, py=None):
+        """Which part of the border the mouse (or the point px, py on the screen) is on:
+        "n", "se"... ("" if none)."""
         w = self.win
-        x, y = w.winfo_pointerx() - w.winfo_rootx(), w.winfo_pointery() - w.winfo_rooty()
+        if px is None:
+            px, py = w.winfo_pointerxy()
+        x, y = px - w.winfo_rootx(), py - w.winfo_rooty()
         W, H, G, C = w.winfo_width(), w.winfo_height(), self.GRIP, self.CORNER
         v = "n" if y < G else "s" if y >= H - G else ""
         h = "w" if x < G else "e" if x >= W - G else ""
@@ -1311,7 +1614,11 @@ class ClassicWindow:
         return v + h
 
     def resize_to(self, mx, my):
-        """Follow the mouse (at mx, my) with the edge/corner grabbed in self._resize."""
+        """Follow the mouse (at mx, my) with the edge/corner grabbed in self._resize - with
+        an outline, like Windows 98 (its "show window contents while dragging" was off): Tk
+        lays a window out again in several quick passes, so resizing the window itself all
+        the way showed parts vanishing, smears and the screen behind it. The window takes
+        the outline's size once, when the mouse lets go (finish_resize)."""
         z, px, py, x, y, W, H = self._resize
         dx, dy = mx - px, my - py
         mw, mh = self.min_size
@@ -1325,14 +1632,60 @@ class ClassicWindow:
         if "n" in z:
             nh = max(mh, H - dy)
             y, H = y + H - nh, nh
-        self.win.geometry(f"{W}x{H}+{x}+{y}")
+        self.show_outline((x, y, W, H), z)
+
+    _CHECKS = {}  # (width, height) -> a checkered picture for the outline's sides
+
+    def show_outline(self, rect, zone=""):
+        """Windows 98's resize outline: a 4 px checkered frame where the window will be (rect:
+        x, y, w, h), drawn by four small borderless windows on top. None: take it away."""
+        bars = getattr(self, "_bars", None)
+        if rect is None:
+            for bar in bars or ():
+                bar.destroy()
+            self._bars, self._target = None, None
+            return
+        self._target = rect
+        T = 4
+        if not bars:
+            sw, sh = self.win.winfo_screenwidth(), self.win.winfo_screenheight()
+            bars = []
+            for w, h in ((sw, T), (sw, T), (T, sh), (T, sh)):
+                key = (w, h)
+                if key not in self._CHECKS:
+                    img = Image.new("RGB", key)
+                    img.putdata([(0, 0, 0) if (i % w + i // w) % 2 else (255, 255, 255)
+                                 for i in range(w * h)])
+                    self._CHECKS[key] = ImageTk.PhotoImage(img)
+                bar = tk.Toplevel(self.win)
+                bar.overrideredirect(True)
+                bar.attributes("-topmost", True)
+                tk.Label(bar, image=self._CHECKS[key], bd=0, highlightthickness=0,
+                         cursor=self.TK_CURSORS.get(zone, "")).pack()
+                bars.append(bar)
+            self._bars = bars
+        x, y, W, H = rect
+        for bar, (bx, by, bw, bh) in zip(bars, ((x, y, W, T), (x, y + H - T, W, T),
+                                               (x, y + T, T, H - 2 * T),
+                                               (x + W - T, y + T, T, H - 2 * T))):
+            bar.geometry(f"{bw}x{max(bh, 1)}+{bx}+{by}")
+        bars[0].update_idletasks()
+
+    def finish_resize(self):
+        """The mouse let go: the window takes the outline's size, laid out and drawn at once."""
+        rect = getattr(self, "_target", None)
+        self.show_outline(None)
+        if rect:
+            x, y, W, H = rect
+            self.win.geometry(f"{W}x{H}+{x}+{y}")
+            self.win.update_idletasks()
 
 
 class ClassicProgress(tk.Canvas):
-    """Classic Windows progress bar: a thin sunken box that fills left to right with navy
-    blocks, one whole block at a time. Takes value= / maximum= like ttk.Progressbar."""
+    """Classic Windows progress bar: a thin sunken box that fills left to right with blocks
+    in the title bar's colour, one whole block at a time. Takes value= / maximum= like
+    ttk.Progressbar."""
     H, BLOCK, GAP, PAD = 20, 8, 2, 2
-    COLOR = "#122976"  # sampled from the reference
 
     def __init__(self, parent, maximum=100, value=0):
         super().__init__(parent, height=self.H, width=1, bg=BG, highlightthickness=0)
@@ -1361,9 +1714,11 @@ class ClassicProgress(tk.Canvas):
             return  # nothing visible changed: skip redrawing
         self._shown = n
         self.delete("all")
-        self.create_line(0, H - 1, 0, 0, W - 1, 0, fill=EDGE_SHADOW)  # sunken edge
+        self.create_line(0, H - 1, 0, 0, W - 1, 0, fill=thin_shadow())  # sunken edge
         self.create_line(1, H - 1, W - 1, H - 1, W - 1, 0, fill=EDGE_LIGHT)
-        color = CUSTOM_SELECT[0] if CUSTOM_SELECT else self.COLOR  # (Custom: its title bar's)
+        # the blocks: the title bar's colour (its strong end), in every theme - navy in
+        # Windows 98, teal in Pink, black in Jungle, your colour in Custom...
+        color = untranslated(CAPTION_ACTIVE[0], "box")
         for i in range(n):
             bx = x0 + i * step
             self.create_rectangle(bx, 1 + self.PAD, bx + self.BLOCK, H - 1 - self.PAD,
@@ -1385,6 +1740,8 @@ def engraved_colors():
     """(light, dark) of greyed-out text: the theme's 3D edge colours, like Windows 98. (In
     the dark theme its edges are too close to the face: there, like the other themes' look -
     readable text with a soft copy 1 px down and right - a mid grey over a near-black.)"""
+    if THEME == "mono":  # (black would look like normal text; the white copy can't show)
+        return "#FFFFFF", "#808080"
     if THEME == "dark":
         return "#636363", "#1A1A1A"
     return theme_color(EDGE_LIGHT, "edge"), theme_color(EDGE_SHADOW, "edge")
@@ -1486,13 +1843,26 @@ class RaisedEdge(tk.Frame):
         self.inner = tk.Frame(self.inner_top_left, bg=BG)
         self.inner.pack(fill="both", expand=True, padx=(1, 0), pady=(1, 0))
 
+    def set_thin(self, thin):
+        """A 1 px outline instead of 2 (Black and White's greyed-out buttons) - the size
+        stays the same: the spare pixel goes inside, in the face colour."""
+        if thin == getattr(self, "thin", False):
+            return
+        self.thin = thin
+        a, b = (1, 2) if thin else (2, 1)
+        self.top_left.pack_configure(padx=(0, a), pady=(0, a))
+        self.bottom_right.pack_configure(padx=(a, 0), pady=(a, 0))
+        self.inner_top_left.pack_configure(padx=(0, b), pady=(0, b))
+        self.inner.pack_configure(padx=(b, 0), pady=(b, 0))
+
     def set_pressed(self, pressed):
         """Pressed in: shadow and dark top / left, light bottom / right (like Tk's sunken)."""
         if pressed == self.pressed:
             return
         self.pressed = pressed
-        colors = ((EDGE_LIGHT, EDGE_SHADOW, BG, EDGE_DARK) if pressed else
-                  (EDGE_DARK, EDGE_LIGHT, EDGE_SHADOW, BG))
+        colors = ((EDGE_LIGHT, EDGE_SHADOW, BG, EDGE_DARK) if pressed and THEME != "mono" else
+                  (EDGE_DARK, EDGE_LIGHT, EDGE_SHADOW, BG))  # (Black and White: the black
+        # outline stays all round when pressed - only the text moves, down and right)
         for frame, color in zip((self, self.top_left, self.bottom_right, self.inner_top_left),
                                 colors):
             tk.Frame.configure(frame, bg=color)
@@ -1553,6 +1923,7 @@ class ClassicButton(RaisedEdge):
                    and not str(self.button.cget("image")))
         except tk.TclError:
             return
+        self.set_thin(off and THEME == "mono")  # (Black and White: a thinner outline when off)
         if not off:
             if self.engraved is not None:
                 self.engraved.place_forget()
@@ -2060,11 +2431,63 @@ class WhatsThis:
         x = min(x + 4, note.winfo_screenwidth() - note.winfo_reqwidth() - 4)
         note.geometry(f"+{x}+{y + 16}")
         note.bind("<ButtonPress>", lambda e: self.close_note())
+        # a click on any part of the window closes it - caught first, before the part itself
+        # (some keep the click to themselves), and still doing what it does
+        self.note_tag = self.tag + "note"
+        self.win.bind_class(self.note_tag, "<ButtonPress>", lambda e: self.close_note())
+        self.tagged = []
+        for w in all_widgets(self.win):
+            try:
+                w.bindtags((self.note_tag,) + w.bindtags())
+                self.tagged.append(w)
+            except tk.TclError:
+                pass
+        self._buttons_down = self.buttons_down()  # (the click that opened it is still down)
+        self.win.after(15, self.watch_note)
+
+    @staticmethod
+    def buttons_down():
+        """Which mouse buttons are down right now (left, right, middle), asked of Windows."""
+        try:
+            import ctypes
+            state = ctypes.windll.user32.GetAsyncKeyState
+            return tuple(bool(state(vk) & 0x8000) for vk in (0x01, 0x02, 0x04))
+        except Exception:
+            return (False, False, False)
+
+    def watch_note(self):
+        """While a note shows: a click outside the window - on another window, on the
+        desktop - or switching to another program closes it, like Windows'. (Clicks on the
+        window itself: see show.)"""
+        note = self.note
+        if note is None:
+            return
+        down = self.buttons_down()
+        clicked = any(now and not before for now, before in zip(down, self._buttons_down))
+        self._buttons_down = down
+        try:  # the program in front isn't this one (this window, its owner, or the note)?
+            import ctypes
+            u = ctypes.windll.user32
+            ours = [self.win, note] + ([self.win.master.winfo_toplevel()] if self.win.master else [])
+            front = u.GetAncestor(u.GetForegroundWindow(), 2)  # GA_ROOT
+            away = bool(front) and front not in {u.GetParent(w.winfo_id()) for w in ours}
+        except (tk.TclError, Exception):
+            away = False
+        if clicked or away:
+            self.close_note()
+        else:
+            self.win.after(15, self.watch_note)
 
     def close_note(self):
         if self.note:
             self.note.destroy()
             self.note = None
+        for w in getattr(self, "tagged", ()):
+            try:
+                w.bindtags(tuple(t for t in w.bindtags() if t != self.note_tag))
+            except tk.TclError:
+                pass
+        self.tagged = []
 
 
 BASIC_COLORS = [  # the 48 "Basic colors" of Windows' classic colour picker
@@ -2107,7 +2530,7 @@ def color_dialog(parent, title, initial="#000085", beside=False):
         return img
 
     def edge1(c, x0, y0, x1, y1):  # 1 px sunken edge round the area [x0, x1] x [y0, y1]
-        c.create_line(x0 - 1, y1 + 1, x0 - 1, y0 - 1, x1 + 2, y0 - 1, fill=EDGE_SHADOW)
+        c.create_line(x0 - 1, y1 + 1, x0 - 1, y0 - 1, x1 + 2, y0 - 1, fill=thin_shadow())
         c.create_line(x0 - 1, y1 + 1, x1 + 1, y1 + 1, x1 + 1, y0 - 2, fill=EDGE_LIGHT)
 
     def edge2(c, x0, y0, x1, y1):  # 2 px sunken edge (the swatches'): grey + black, face + white
@@ -2778,7 +3201,7 @@ class FlatScrollbar(tk.Canvas):
     have a scrollbar colour of their own, a plain track) - the part of the track being
     held down turns dark, like Windows'. Drawn in the theme's own colours.
     Drop-in for tk.Scrollbar: command=widget.yview, and the widget's yscrollcommand=sb.set."""
-    CHECKERED = ("98", "xp")  # the themes with Windows 98's checkered track
+    CHECKERED = ("98", "xp", "mono")  # the themes with Windows 98's checkered track
     W, ARROW = 17, 17
     TRACK, THUMB, THUMB_HOVER, THUMB_DOWN = "#EFEFEF", "#CCCCCC", "#A6A6A6", "#606060"
     ARROW_FG, ARROW_HOVER_BG = "#5F5F5F", "#DADADA"
@@ -2854,6 +3277,8 @@ class FlatScrollbar(tk.Canvas):
         W, H, A = self.winfo_width(), self.winfo_height(), self.ARROW
         # the track
         face, light = theme_color(BG), theme_color(EDGE_LIGHT, "edge")
+        if THEME == "mono":
+            face, light = "#FFFFFF", "#000000"  # (black and white checks)
         if THEME in self.CHECKERED:
             self.create_image(0, A, image=self.checker(face, light), anchor="nw")
         else:
@@ -3620,7 +4045,8 @@ class App(BaseTk):
         # etched line under it, like classic Windows' menu bars - drawn the same way as the
         # line round the Files / Options boxes (a 2 px groove), so it looks the same in both modes
         # (its own face colour: the same as BG in light mode, 2 steps darker in dark mode)
-        tk.Frame(content, bg="#EBE8D7", height=2, bd=2, relief="groove").pack(fill="x", padx=2, pady=(1, 0))
+        self.menu_line = tk.Frame(content, bg="#EBE8D7", height=2, bd=2, relief="groove")
+        self.menu_line.pack(fill="x", padx=2, pady=(1, 0))
         # Home: the converter itself (tabs and their pages); Settings and About take its place
         home = tk.Frame(content, bg=BG)
         self.panels = {"home": home, "settings": self.build_settings(content),
@@ -3937,13 +4363,15 @@ class App(BaseTk):
                     ("*TCombobox*Listbox.selectForeground", select_colors()[1])):
                 self.option_add(pattern, value)
         names = {"disabledforeground": "*disabledForeground", "selectcolor": "*selectColor",
-                 "selectbackground": "*selectBackground", "selectforeground": "*selectForeground"}
+                 "selectbackground": "*selectBackground", "selectforeground": "*selectForeground",
+                 "foreground": "*foreground", "activeforeground": "*activeForeground"}
         for opt, value in system_colors(theme).items():
             if opt in names and not (dark and opt not in ("selectbackground", "selectforeground")):
                 self.option_add(names[opt], value)
         widgets = all_widgets(self)
         for w in widgets:  # everything that already exists
             retheme(w, old, theme)
+            mono_boxes(w, theme == "mono")
         for w in widgets:  # the custom-drawn parts: redraw them in the new colours
             if isinstance(w, (ClassicTabs, FlatScrollbar)):
                 w.draw()
@@ -3959,6 +4387,20 @@ class App(BaseTk):
                 w.redraw()
             elif isinstance(w, (EngravedLabel, TrackBar)):
                 w.draw()
+            elif w is getattr(self, "menu_line", None):  # the line under the menu bar: the
+                # same as the group boxes' - in Black and White a plain 1 px black line (with
+                # 1 px more space under it, so nothing below moves)
+                mono = theme == "mono"
+                w.configure(relief="flat" if mono else "groove", bd=0 if mono else 2,
+                            height=1 if mono else 2)
+                w.pack_configure(pady=(1, 1) if mono else (1, 0))
+            elif isinstance(w, tk.LabelFrame):  # group boxes: Windows' grey etched line - in
+                # Black and White a plain black one (1 px, and 1 px of face round it, so
+                # nothing inside moves)
+                mono = theme == "mono"
+                w.configure(relief="solid" if mono else "groove", bd=1 if mono else 2,
+                            highlightthickness=1 if mono else 0, highlightbackground=BG)
+        self.chrome.border_colors()
         self.chrome.draw()
         self.color_dropdown_lists()
         self.update_quality_state()  # the ICO size list's height differs between the modes
