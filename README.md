@@ -1,118 +1,56 @@
 # Master Converter
 
-A free, offline Windows app for converting **images, videos and sound** - and making **GIFs** -
-with a classic Windows XP look. Everything runs on your own PC: no accounts, no ads.
-(The only time it goes online is to check this page for a newer version - see *Updates* below.)
+Ever needed to convert a file but didn't trust those online converter sites? That's why I made
+this. Master Converter is a small Windows app that converts your images, videos and audio, and
+makes GIFs, all on your own PC. No accounts, no ads, and your files never leave your computer.
 
-## Features
+It looks and feels like Windows 98, because why not.
 
-### Images
-- Convert between **PNG, JPEG, WEBP, AVIF, HEIC, GIF, BMP, TIFF, ICO, PDF, TGA, PPM, JPEG 2000,
-  DDS, PCX, SVG** and **RAW pixel data**.
-- Opens **camera RAW photos** (Canon CR2/CR3, Nikon NEF, Sony ARW, DNG, Fujifilm RAF, Olympus ORF,
-  Panasonic RW2, ...) and **SVG drawings**, as well as all of the above.
-- Quality slider for JPEG / WEBP / AVIF / HEIC; keeps photo info (date, camera, GPS) if you want.
-- Rename or duplicate files before converting (right-click).
+## What it can do
 
-### Videos
-- Convert to **MP4, WEBM, MKV, MOV, AVI, GIF**, or keep just the sound as **MP3**.
-- Quality, size (4K ... 360p), frame rate, and "remove sound" options.
-- Live progress per file, and a Cancel button.
+- **Images:** convert between all the usual formats (PNG, JPEG, WEBP, HEIC, and lots more). It
+  even opens camera RAW photos.
+- **Videos:** convert to MP4, WEBM, MKV and others, change the size or quality, or remove the sound.
+- **Audio:** convert between MP3, WAV, FLAC and others, or pull the sound out of a video.
+- **GIF Maker:** pick a part of a video and turn it into a GIF.
 
-### Audio
-- Convert sound between **MP3, WAV, M4A (AAC), FLAC, OGG, OPUS, AIFF, WMA** - or take the sound
-  out of a video.
-- Quality (**Original** keeps each file's own quality, copying it untouched when the format
-  doesn't change), sample rate, and stereo / mono.
+Just drag your files in, pick a format and hit Convert. It never overwrites your originals. You
+can also switch between a few themes from the Theme menu.
 
-### GIF Maker
-- Open a video (or a GIF), pick the part you want on a Movie Maker-style timeline, preview it,
-  and save it as a GIF that **loops forever or plays once**.
-- Shows the expected file size before you make it.
+## Install
 
-### Everywhere
-- Drag & drop files or whole folders.
-- Two views of your files: **thumbnails** or **details** - switch with the button or
-  **Ctrl + mouse wheel**.
-- Select several files with Ctrl / Shift / dragging; hover a file for its details.
-- "Show converted files" opens the folder with the new files highlighted.
-- Never overwrites anything: a name that's taken gets `_converted1`, `_converted2`, ...
-- **Themes**: the **Theme** menu switches the whole app between **Windows 98** (the default),
-  **Windows 98 Ivory**, **Windows 98 Dark**, **Windows 98 Pink**, **Windows 98 Jungle**,
-  **Windows 98 Vapor** and **Windows 98 Black and White**, and it remembers your choice.
-- **Settings**: see where the app is installed, turn the sound effects on or off, and use your
-  own picture as the app's icon.
+1. Download **MasterConverter-Setup.exe** from the [Releases](../../releases/latest) page.
+2. Run it. If Windows says **"Windows protected your PC"**, click **More info → Run anyway**.
+   That warning shows up for any app that isn't signed with a paid certificate. It doesn't mean
+   the app is unsafe.
+3. Click through the installer and open Master Converter from the Start menu.
 
----
+The app tells you when there's a new version and can update itself. Checking for updates is the
+only time it goes online.
 
-## Download and install (for users)
+## Run it from the code
 
-1. Go to the [**Releases**](../../releases/latest) page and download **MasterConverter-Setup.exe**.
-2. Run it. If Windows shows **"Windows protected your PC"**, click **More info -> Run anyway**
-   (see the note below).
-3. Click **Next -> Install -> Finish**, then open **Master Converter** from the Start menu.
-
-To uninstall: **Settings -> Apps -> Installed apps -> Master Converter -> Uninstall**.
-
-### Updates
-When the app starts, it checks this project's Releases page for a newer version. If there is one,
-it offers **Update now**, **Not now** or **Skip this version**. *Update now* downloads and
-installs the new version by itself, restarts the app and shows what's new. *Not now* puts an
-update button in the title bar to install it later (and asks again next time); *Skip this
-version* doesn't ask about that version again. Any time, **Settings -> Updates** shows your
-version and can check for a newer one. The check only reads the public list of releases -
-nothing about you or your files is sent. To turn the check at start off, set
-`"check_updates": false` in `%APPDATA%\Master Converter\settings.json`.
-
-> **About the "Windows protected your PC" warning:** Windows shows it for any program from an
-> unknown publisher. It doesn't mean the app is unsafe - the app just isn't digitally signed
-> (that needs a paid code-signing certificate).
-
----
-
-## Run from the source code
-
-Needs [Python](https://www.python.org/downloads/) 3.10 or newer (tick **Add python.exe to PATH**
-when installing).
+You'll need [Python](https://www.python.org/downloads/) 3.10 or newer.
 
 ```
 pip install -r requirements.txt
 python master_converter.py
 ```
 
-## Build the installer yourself
+To build the installer yourself, install [Inno Setup](https://jrsoftware.org/isdl.php) and run
+`build.bat`. New releases are built automatically on GitHub when a version tag (like `v1.2.0`) is
+pushed.
 
-**On your own PC:** install [Inno Setup](https://jrsoftware.org/isdl.php) (free), then double-click
-**`build.bat`**. It makes `dist\MasterConverter.exe` and the installer
-`installer_output\MasterConverter-Setup.exe`.
+## Thanks to
 
-**With GitHub (automatic):** push a tag such as `v1.0.0` (or create a release with that tag on
-GitHub). The workflow in `.github/workflows/release.yml` builds the installer in the cloud and
-attaches it to the release - watch the **Actions** tab; it takes about 5 minutes.
-For a new version, publish a new tag: `v1.0.1`, `v1.1.0`, ... The tag's number becomes the app's
-version, and every installed copy offers the update the next time it starts; the release's
-description is what users see as "what's new" after updating. (Builds made with `build.bat` or run
-from the source code have no version, so they never check for updates.)
+- [Pillow](https://python-pillow.org/) and [pillow-heif](https://github.com/bigcat88/pillow_heif) for images
+- [FFmpeg](https://ffmpeg.org/) (through [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)) for video, audio and GIFs
+- [rawpy](https://github.com/letmaik/rawpy) for camera RAW photos
+- [resvg_py](https://github.com/baseplate-admin/resvg-py) for SVG files
+- [tkinterdnd2](https://github.com/Eliav2/tkinterdnd2) for drag and drop
+- [PyInstaller](https://pyinstaller.org/) and [Inno Setup](https://jrsoftware.org/isinfo.php) for the app and installer
 
-## What's in this repository
+Each of these has its own license. The FFmpeg build that comes with imageio-ffmpeg is under the
+GPL, which applies if you share the built app.
 
-| File | What it is |
-|---|---|
-| `master_converter.py` | the whole app |
-| `requirements.txt` | the Python packages it needs |
-| `icon.ico` / `icon.png` | the app icon (replace both, keeping the names, to change it) |
-| `build.bat` | one click: builds the .exe and the installer on your PC |
-| `installer.iss` | the recipe for the installer (used by Inno Setup) |
-| `.github/workflows/release.yml` | builds the installer on GitHub for every release tag |
-
-## Built with
-
-- [Pillow](https://python-pillow.org/) and [pillow-heif](https://github.com/bigcat88/pillow_heif) - images, HEIC
-- [FFmpeg](https://ffmpeg.org/) via [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) - video, sound, GIFs
-- [LibRaw](https://www.libraw.org/) via [rawpy](https://github.com/letmaik/rawpy) - camera RAW photos
-- [resvg](https://github.com/linebender/resvg) via [resvg_py](https://github.com/baseplate-admin/resvg-py) - SVG drawings
-- [tkinterdnd2](https://github.com/Eliav2/tkinterdnd2) - drag & drop
-- [PyInstaller](https://pyinstaller.org/) and [Inno Setup](https://jrsoftware.org/isinfo.php) - the .exe and the installer
-
-Each of these has its own license. Note that the FFmpeg build bundled by imageio-ffmpeg is
-licensed under the GPL, which applies when you distribute the built app.
+Made by **bocchi the old**. For more tools, check out [my GitHub profile](https://github.com/bocchhii).
